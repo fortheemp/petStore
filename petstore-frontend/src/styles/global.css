@@ -1,0 +1,80 @@
+@import './variables.css';
+
+/* ========== 全局重置 ========== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 62.5%; /* 1rem = 10px */
+}
+
+body {
+  font-family: var(--font-primary);
+  font-size: var(--text-body-md);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--color-brand-blue);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-brand-blue-hover);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* ========== 容器 ========== */
+
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-4);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 2.4rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .container {
+    padding: 0 4.8rem;
+  }
+}
+
+/* ========== 页面内容区 ========== */
+
+.main-content {
+  min-height: calc(100vh - 6rem - 30rem); /* 视口高度 - header - footer */
+}
