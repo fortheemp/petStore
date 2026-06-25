@@ -1,4 +1,5 @@
 import { get } from './request'
+import { getShopById } from './shop'
 
 // ========== UI 元数据（非 mock，前端专用） ==========
 
@@ -109,6 +110,8 @@ export function getProducts(params = {}) {
     shopId = '',
     keyword = '',
     sort = 'default',
+    priceRange = '',
+    rating = '',
   } = params
 
   return fetchAllProducts().then((all) => {
@@ -126,6 +129,18 @@ export function getProducts(params = {}) {
     }
     if (shopId) {
       filtered = filtered.filter((p) => p.shopId === Number(shopId))
+    }
+    if (priceRange) {
+      const range = priceRanges.find((r) => r.label === priceRange)
+      if (range) {
+        filtered = filtered.filter((p) => p.price >= range.min && p.price < range.max)
+      }
+    }
+    if (rating) {
+      const opt = ratingOptions.find((r) => r.label === rating)
+      if (opt) {
+        filtered = filtered.filter((p) => p.rating >= opt.min)
+      }
     }
 
     switch (sort) {
@@ -153,9 +168,21 @@ export async function getProductById(id) {
   const res = await get(`/products/${id}`)
   if (!res) return null
   const product = adaptProduct(res)
+
+  let shopName = ''
+  if (res.shopId) {
+    try {
+      const shop = await getShopById(res.shopId)
+      shopName = shop?.name || ''
+    } catch {}
+  }
+
+  const images = [res.image].filter(Boolean)
+
   return {
     ...product,
-    images: [product.image, '', '', ''],
+    shopName,
+    images,
     stock: res.stock,
     specs: [
       {
@@ -171,7 +198,9 @@ export async function getProductById(id) {
       : `<h3>产品介绍</h3><p>${res.name}，品质保证。</p>`,
     specsTable: [
       { label: '商品名称', value: res.name },
-      { label: '库存', value: `${res.stock}` },
+      { label: '商品类型', value: res.type === 'pet' ? '活体宠物' : '宠物用品' },
+      { label: '库存', value: `${res.stock} 件` },
+      { label: '价格', value: `¥${res.price}` },
     ],
     reviews: [],
     relatedIds: [],

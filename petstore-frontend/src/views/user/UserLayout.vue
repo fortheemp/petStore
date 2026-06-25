@@ -77,29 +77,35 @@ const isActive = (path) => {
 }
 
 .user-sidebar__user {
-  padding: 3.2rem 2.4rem;
+  padding: 4rem 2.4rem 2.4rem;
   text-align: center;
-  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(135deg, #1c49c2 0%, #3a6fd8 100%);
+  position: relative;
 }
 
 .user-sidebar__avatar {
   width: 7.2rem;
   height: 7.2rem;
   border-radius: 50%;
-  background: var(--color-brand-blue);
-  color: #fff;
+  background: #fff;
+  color: var(--color-brand-blue);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.2rem;
   font-size: 2.8rem;
   font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 1;
 }
 
 .user-sidebar__nickname {
   font-size: 1.6rem;
   font-weight: 600;
-  color: #121212;
+  color: #fff;
+  position: relative;
+  z-index: 1;
 }
 
 .user-sidebar__menu {

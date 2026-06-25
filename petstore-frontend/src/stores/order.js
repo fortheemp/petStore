@@ -28,7 +28,30 @@ export const useOrderStore = defineStore('order', () => {
     if (!userId) { orders.value = []; return }
     try {
       const res = await getOrderList(userId)
-      orders.value = Array.isArray(res) ? res : []
+      const list = Array.isArray(res) ? res : []
+      // 后端 list 不含 items，逐个获取明细
+      const enriched = await Promise.all(list.map(async (o) => {
+        let items = []
+        try {
+          const detail = await getOrderDetail(o.id)
+          items = Array.isArray(detail?.items) ? detail.items : []
+        } catch {}
+        return {
+          ...o,
+          orderNo: `PS${String(o.id).padStart(8, '0')}`,
+          createTime: o.createdAt,
+          payAmount: Number(o.totalAmount) || 0,
+          items: items.map((it) => ({
+            productId: it.productId,
+            name: it.productName,
+            image: it.productImage || '',
+            price: Number(it.price) || 0,
+            quantity: it.quantity || 1,
+            spec: it.spec || '',
+          })),
+        }
+      }))
+      orders.value = enriched
     } catch { orders.value = [] }
   }
 
@@ -57,14 +80,44 @@ export const useOrderStore = defineStore('order', () => {
   async function submitReview(orderId, data) {
     const userId = getUserId()
     if (!userId) return
-    try { await apiReviewOrder(orderId, { userId, ...data }); await loadOrders() } catch {}
+    try { await apiReviewOrder(orderId, { userId, reviews: data }); await loadOrders() } catch {}
   }
 
   async function getOrderDetailById(orderId) {
     try {
       const res = await getOrderDetail(orderId)
-      return res
-    } catch { return null }
+      if (res && res.order) {
+        const o = res.order
+        let address = {}
+        try { address = JSON.parse(o.addressSnapshot || '{}') } catch {}
+        const totalAmount = Number(o.totalAmount) || 0
+        return {
+          ...o,
+          orderNo: `PS${String(o.id).padStart(8, '0')}`,
+          createTime: o.createdAt,
+          payTime: o.updatedAt,
+          totalAmount,
+          payAmount: totalAmount,
+          shippingFee: totalAmount >= 199 ? 0 : 10,
+          address,
+          payMethod: 'wechat',
+          remark: '',
+          reviewed: false,
+          items: Array.isArray(res.items) ? res.items.map((it) => ({
+            productId: it.productId,
+            name: it.productName,
+            image: it.productImage || '',
+            price: Number(it.price) || 0,
+            quantity: it.quantity || 1,
+            spec: it.spec || '',
+          })) : [],
+        }
+      }
+      return null
+    } catch (e) {
+      console.error('store.getOrderDetailById: error=', e)
+      return null
+    }
   }
 
   const getOrdersByStatus = (status) => {

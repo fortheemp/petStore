@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useAddressStore } from '@/stores/address'
+import { chinaRegions } from '@/data/china-regions'
 
 const addressStore = useAddressStore()
 
@@ -32,26 +33,7 @@ const rules = {
 
 const formRef = ref(null)
 
-const provinces = [
-  { value: '广东省', label: '广东省', children: [
-    { value: '广州市', label: '广州市', children: [
-      { value: '天河区', label: '天河区' }, { value: '越秀区', label: '越秀区' }, { value: '海珠区', label: '海珠区' },
-    ]},
-    { value: '深圳市', label: '深圳市', children: [
-      { value: '南山区', label: '南山区' }, { value: '福田区', label: '福田区' }, { value: '罗湖区', label: '罗湖区' },
-    ]},
-  ]},
-  { value: '北京市', label: '北京市', children: [
-    { value: '北京市', label: '北京市', children: [
-      { value: '朝阳区', label: '朝阳区' }, { value: '海淀区', label: '海淀区' }, { value: '东城区', label: '东城区' },
-    ]},
-  ]},
-  { value: '上海市', label: '上海市', children: [
-    { value: '上海市', label: '上海市', children: [
-      { value: '浦东新区', label: '浦东新区' }, { value: '徐汇区', label: '徐汇区' }, { value: '静安区', label: '静安区' },
-    ]},
-  ]},
-]
+const provinces = chinaRegions
 
 const cascaderValue = ref([])
 

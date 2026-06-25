@@ -41,7 +41,7 @@ const formatDate = (iso) => {
 
 const handleShip = (order) => {
   ElMessageBox.confirm(
-    `确认对订单「${order.orderNo}」进行发货操作？`,
+    `确认对订单「#${order.id}」进行发货操作？`,
     '发货确认',
     { confirmButtonText: '确认发货', cancelButtonText: '取消', type: 'info' },
   ).then(() => {
@@ -52,7 +52,7 @@ const handleShip = (order) => {
 
 const handleApproveRefund = (order) => {
   ElMessageBox.confirm(
-    `确认同意订单「${order.orderNo}」的退款申请？`,
+    `确认同意订单「#${order.id}」的退款申请？`,
     '退款确认',
     { confirmButtonText: '同意退款', cancelButtonText: '取消', type: 'warning' },
   ).then(() => {
@@ -63,7 +63,7 @@ const handleApproveRefund = (order) => {
 
 const handleRejectRefund = (order) => {
   ElMessageBox.confirm(
-    `确认拒绝订单「${order.orderNo}」的退款申请？`,
+    `确认拒绝订单「#${order.id}」的退款申请？`,
     '拒绝退款',
     { confirmButtonText: '拒绝', cancelButtonText: '取消', type: 'warning' },
   ).then(() => {
@@ -102,27 +102,20 @@ const handleRejectRefund = (order) => {
       <div v-for="order in filteredOrders" :key="order.id" class="order-card">
         <div class="order-card__header">
           <div class="order-card__header-left">
-            <span class="order-card__order-no">{{ order.orderNo }}</span>
+            <span class="order-card__order-no">订单 #{{ order.id }}</span>
             <span class="status" :class="getStatusClass(order.status)">{{ getStatusText(order.status) }}</span>
           </div>
-          <span class="order-card__time">{{ formatDate(order.createTime) }}</span>
+          <span class="order-card__time">{{ formatDate(order.createdAt) }}</span>
         </div>
 
         <div class="order-card__body">
-          <div class="order-card__items">
-            <div v-for="(item, idx) in order.items" :key="idx" class="order-card__item">
-              <span class="order-card__item-name">{{ item.name }}</span>
-              <span class="order-card__item-qty">x{{ item.quantity }}</span>
-              <span class="order-card__item-price">¥{{ item.price }}</span>
-            </div>
-          </div>
-          <div class="order-card__user">用户：{{ order.username }}</div>
-          <div class="order-card__address">收货地址：{{ order.address }}</div>
+          <div class="order-card__user">用户ID：{{ order.userId }}</div>
+          <div class="order-card__address">收货地址：{{ order.addressSnapshot || '-' }}</div>
         </div>
 
         <div class="order-card__footer">
           <div class="order-card__total">
-            实付：<span class="order-card__amount">¥{{ order.payAmount }}</span>
+            实付：<span class="order-card__amount">¥{{ order.totalAmount }}</span>
           </div>
           <div class="order-card__actions">
             <button

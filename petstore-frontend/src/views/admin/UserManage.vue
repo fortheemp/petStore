@@ -12,7 +12,7 @@ const filteredUsers = computed(() => {
   if (!searchQuery.value) return admin.users
   const q = searchQuery.value.toLowerCase()
   return admin.users.filter(
-    (u) => u.username.toLowerCase().includes(q) || u.nickname.toLowerCase().includes(q) || u.phone.includes(q),
+    (u) => (u.username && u.username.toLowerCase().includes(q)) || (u.nickname && u.nickname.toLowerCase().includes(q)),
   )
 })
 
@@ -25,7 +25,15 @@ const handleSearch = () => {
   currentPage.value = 1
 }
 
-const maskPhone = (phone) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+const roleLabel = (role) => {
+  const map = { admin: '管理员', member: '普通用户', tourist: '游客' }
+  return map[role] || '普通用户'
+}
+
+const formatTime = (t) => {
+  if (!t) return '-'
+  return String(t).slice(0, 10)
+}
 </script>
 
 <template>
@@ -36,7 +44,7 @@ const maskPhone = (phone) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
     <div class="search-bar">
       <el-input
         v-model="searchQuery"
-        placeholder="搜索用户名、昵称、手机号..."
+        placeholder="搜索用户名、昵称..."
         style="width: 360px"
         @keyup.enter="handleSearch"
         clearable
@@ -58,22 +66,19 @@ const maskPhone = (phone) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
           </template>
         </el-table-column>
         <el-table-column prop="nickname" label="昵称" width="120" />
-        <el-table-column label="手机号" width="140">
-          <template #default="{ row }">{{ maskPhone(row.phone) }}</template>
-        </el-table-column>
         <el-table-column label="角色" width="100">
           <template #default="{ row }">
             <span class="tag" :class="row.role === 'admin' ? 'tag--admin' : 'tag--user'">
-              {{ row.role === 'admin' ? '管理员' : '普通用户' }}
+              {{ roleLabel(row.role) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <span class="tag tag--success">{{ row.status }}</span>
-          </template>
+        <el-table-column label="等级" width="80">
+          <template #default="{ row }">{{ row.level ?? 0 }}</template>
         </el-table-column>
-        <el-table-column prop="createTime" label="注册时间" width="120" />
+        <el-table-column label="注册时间">
+          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+        </el-table-column>
       </el-table>
     </div>
 

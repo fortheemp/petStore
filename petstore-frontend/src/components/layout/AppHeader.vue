@@ -32,6 +32,14 @@ const handleLogout = () => {
   ElMessage.success('已退出登录')
   router.push('/')
 }
+
+const handleCommand = (cmd) => {
+  if (cmd === 'logout') {
+    handleLogout()
+  } else if (cmd) {
+    router.push(cmd)
+  }
+}
 </script>
 
 <template>
@@ -105,7 +113,7 @@ const handleLogout = () => {
 
           <!-- 已登录 -->
           <template v-else>
-            <el-dropdown trigger="click">
+            <el-dropdown trigger="click" @command="handleCommand">
               <div class="header__action-item header__user">
                 <el-avatar :size="28" class="header__avatar">
                   {{ user.displayName.charAt(0) }}
@@ -114,16 +122,16 @@ const handleLogout = () => {
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item v-if="user.isAdmin">
-                    <router-link to="/admin/dashboard" class="dropdown-link dropdown-link--admin">管理后台</router-link>
+                  <el-dropdown-item v-if="user.isAdmin" command="/admin/dashboard">
+                    <span class="dropdown-link dropdown-link--admin">管理后台</span>
                   </el-dropdown-item>
-                  <el-dropdown-item>
-                    <router-link to="/user/profile" class="dropdown-link">个人中心</router-link>
+                  <el-dropdown-item command="/user/profile">
+                    <span class="dropdown-link">个人中心</span>
                   </el-dropdown-item>
-                  <el-dropdown-item>
-                    <router-link to="/user/orders" class="dropdown-link">我的订单</router-link>
+                  <el-dropdown-item command="/user/orders">
+                    <span class="dropdown-link">我的订单</span>
                   </el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout">
+                  <el-dropdown-item divided command="logout">
                     <span class="dropdown-link logout">退出登录</span>
                   </el-dropdown-item>
                 </el-dropdown-menu>

@@ -3,7 +3,6 @@ import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProductById, getRelatedProducts } from '@/api/product'
 import { useCartStore } from '@/stores/cart'
-import ProductCard from '@/components/common/ProductCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +15,24 @@ const selectedSpec = ref(null)
 const quantity = ref(1)
 const activeTab = ref('detail')
 const relatedProducts = ref([])
+const isFavorited = ref(false)
+const FAVORITES_KEY = 'petstore_favorites'
+
+const toggleFavorite = () => {
+  const ids = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]')
+  const pid = product.value?.id
+  if (!pid) return
+  if (isFavorited.value) {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids.filter((id) => id !== pid)))
+    isFavorited.value = false
+    ElMessage.success('已取消收藏')
+  } else {
+    ids.push(pid)
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
+    isFavorited.value = true
+    ElMessage.success('已收藏')
+  }
+}
 
 const tabs = [
   { key: 'detail', label: '商品详情' },
@@ -23,65 +40,51 @@ const tabs = [
   { key: 'reviews', label: '用户评价' },
 ]
 
+const categoryLabels = { dogs: '狗狗用品', cats: '猫咪用品', fish: '水族用品', birds: '鸟类用品', small: '小宠用品' }
+
 const fetchProduct = async () => {
   loading.value = true
+  activeImageIndex.value = 0
   try {
     const data = await getProductById(route.params.id)
-    if (!data) {
-      router.replace('/products')
-      return
-    }
+    if (!data) { router.replace('/products'); return }
     product.value = data
-    // 默认选中第一个可用规格
     if (data.specs?.length) {
       const firstAvailable = data.specs[0].options.find((o) => o.available)
       if (firstAvailable) selectedSpec.value = firstAvailable
     }
-    // 加载相关商品
     if (data.relatedIds?.length) {
       relatedProducts.value = await getRelatedProducts(data.relatedIds)
     }
+    const ids = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]')
+    isFavorited.value = ids.includes(data.id)
   } finally {
     loading.value = false
   }
 }
 
-// 数量操作
-const decreaseQty = () => { if (quantity.value > 1) quantity.value-- }
-const increaseQty = () => { if (quantity.value < product.value.stock) quantity.value++ }
+const decreaseQty = () => { if (quantity.value > 1) quantity-- }
+const increaseQty = () => { if (quantity.value < product.value?.stock) quantity++ }
 
-// 折扣计算
-const discount = (() => {
-  if (!product.value?.originalPrice || product.value.originalPrice <= product.value.price) return null
-  return Math.round((1 - product.value.price / product.value.originalPrice) * 100)
-})
-
-// 加入购物车
 const handleAddToCart = () => {
-  if (!selectedSpec.value) {
-    ElMessage.warning('请选择规格')
-    return
-  }
+  if (!selectedSpec.value) { ElMessage.warning('请选择规格'); return }
   cart.addToCart(product.value, quantity.value, selectedSpec.value)
   ElMessage.success('已加入购物车')
 }
 
-// 立即购买
 const handleBuyNow = () => {
-  if (!selectedSpec.value) {
-    ElMessage.warning('请选择规格')
-    return
-  }
+  if (!selectedSpec.value) { ElMessage.warning('请选择规格'); return }
   cart.addToCart(product.value, quantity.value, selectedSpec.value)
   router.push('/cart')
 }
 
-// 生成星星
 const renderStars = (rating) => {
   const full = Math.floor(rating)
   const half = rating % 1 >= 0.5 ? 1 : 0
   return { full, half, empty: 5 - full - half }
 }
+
+const formatPrice = (p) => Number(p).toFixed(2)
 
 watch(() => route.params.id, fetchProduct)
 onMounted(fetchProduct)
@@ -89,14 +92,18 @@ onMounted(fetchProduct)
 
 <template>
   <div class="detail-page">
-    <!-- 加载中 -->
+    <!-- 骨架屏 -->
     <div v-if="loading" class="container detail-loading">
-      <div class="skeleton-row">
-        <div class="skeleton-gallery"></div>
+      <div class="skeleton-main">
+        <div class="skeleton-gallery">
+          <div class="skeleton-pulse"></div>
+        </div>
         <div class="skeleton-info">
           <div class="skeleton-line skeleton-line--title"></div>
           <div class="skeleton-line skeleton-line--short"></div>
           <div class="skeleton-line skeleton-line--price"></div>
+          <div class="skeleton-line skeleton-line--text"></div>
+          <div class="skeleton-line skeleton-line--text"></div>
           <div class="skeleton-line skeleton-line--btn"></div>
         </div>
       </div>
@@ -104,46 +111,57 @@ onMounted(fetchProduct)
 
     <template v-else-if="product">
       <!-- 面包屑 -->
-      <div class="breadcrumb-section">
+      <div class="breadcrumb-bar">
         <div class="container">
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item :to="{ path: '/products', query: { category: product.category } }">
-              {{ product.category ? (product.category === 'dogs' ? '狗狗用品' : product.category === 'cats' ? '猫咪用品' : product.category === 'fish' ? '水族用品' : product.category === 'birds' ? '鸟类用品' : '小宠用品') : '全部商品' }}
-            </el-breadcrumb-item>
-            <el-breadcrumb-item>{{ product.name }}</el-breadcrumb-item>
-          </el-breadcrumb>
+          <nav class="breadcrumb">
+            <router-link to="/" class="breadcrumb__link">首页</router-link>
+            <span class="breadcrumb__sep">/</span>
+            <router-link :to="{ path: '/products', query: { category: product.category } }" class="breadcrumb__link">
+              {{ categoryLabels[product.category] || '全部商品' }}
+            </router-link>
+            <span class="breadcrumb__sep">/</span>
+            <span class="breadcrumb__current">{{ product.name }}</span>
+          </nav>
         </div>
       </div>
 
-      <!-- 主体区域：图片 + 信息 -->
+      <!-- 主体区域 -->
       <div class="product-main">
         <div class="container product-main__inner">
-          <!-- 左侧：图片画廊 -->
+          <!-- 左侧：图片 -->
           <div class="product-gallery">
             <div class="product-gallery__main">
-              <div class="product-gallery__placeholder">
-                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
+              <img
+                v-if="product.images.length && product.images[activeImageIndex]"
+                :src="product.images[activeImageIndex]"
+                :alt="product.name"
+                class="product-gallery__img"
+              />
+              <div v-else class="product-gallery__empty">
+                <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                  <rect width="120" height="120" rx="16" fill="#f0f4ff"/>
+                  <g transform="translate(30, 24)" stroke="#1c49c2" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
+                    <path d="M20 10.344C20 7.564 16.846 5.358 13 6c-5.646.94-8.226 12.012-8 14 .274 2.434 3 4 5 4s4-1 6-3c1-1 2-2 3-3"/>
+                    <path d="M28.534 10.344c0-2.78 3.154-4.986 7-4.344 5.646.94 8.226 12.012 8 14-.274 2.434-3 4-5 4s-4-1-6-3c-1-1-2-2-3-3"/>
+                    <path d="M16 28v1M24 28v1"/>
+                    <path d="M22.5 32.5h3L24 34l-.75-.75"/>
+                    <path d="M8.84 22.494A26.304 26.304 0 0 0 8 29.112C8 37.456 15.164 42 24 42s16-4.544 16-12.888a26.304 26.304 0 0 0-.84-6.618"/>
+                  </g>
                 </svg>
+                <span class="product-gallery__empty-text">暂无图片</span>
               </div>
             </div>
-            <div class="product-gallery__thumbs">
-              <div
+            <!-- 缩略图 -->
+            <div v-if="product.images.length > 1" class="product-gallery__thumbs">
+              <button
                 v-for="(img, idx) in product.images"
                 :key="idx"
-                class="product-gallery__thumb"
-                :class="{ 'product-gallery__thumb--active': activeImageIndex === idx }"
+                class="gallery-thumb"
+                :class="{ 'gallery-thumb--active': activeImageIndex === idx }"
                 @click="activeImageIndex = idx"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-              </div>
+                <img :src="img" :alt="`${product.name} ${idx + 1}`" />
+              </button>
             </div>
           </div>
 
@@ -151,52 +169,55 @@ onMounted(fetchProduct)
           <div class="product-info">
             <div class="product-info__title-row">
               <h1 class="product-info__title">{{ product.name }}</h1>
-              <span v-if="product.productType === 'pet'" class="product-info__pet-tag">活体宠物</span>
+              <span v-if="product.productType === 'pet'" class="pet-badge">活体宠物</span>
+              <button class="favorite-btn" :class="{ 'favorite-btn--active': isFavorited }" @click="toggleFavorite">
+                <svg width="22" height="22" viewBox="0 0 24 24" :fill="isFavorited ? '#e74c3c' : 'none'" :stroke="isFavorited ? '#e74c3c' : '#999'" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
             </div>
 
             <!-- 评分 -->
             <div class="product-info__rating">
-              <span class="stars">
-                <span v-for="i in renderStars(product.rating).full" :key="'f'+i">★</span>
-                <span v-if="renderStars(product.rating).half">☆</span>
-                <span v-for="i in renderStars(product.rating).empty" :key="'e'+i" class="star-empty">★</span>
+              <span class="stars-row">
+                <svg v-for="i in renderStars(product.rating).full" :key="'f'+i" width="16" height="16" viewBox="0 0 24 24" fill="#ffc107" stroke="#ffc107" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <svg v-if="renderStars(product.rating).half" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="1"><defs><linearGradient id="half"><stop offset="50%" stop-color="#ffc107"/><stop offset="50%" stop-color="transparent"/></linearGradient></defs><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="url(#half)"/></svg>
+                <svg v-for="i in renderStars(product.rating).empty" :key="'e'+i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               </span>
-              <span class="score">{{ product.rating }}</span>
-              <span class="count">{{ product.reviewCount }} 条评价</span>
+              <span class="rating-score">{{ product.rating?.toFixed(1) }}</span>
+              <span class="review-count">{{ product.reviewCount }} 条评价</span>
             </div>
 
             <!-- 价格 -->
-            <div class="product-info__price-box">
-              <span class="current-price">
-                <span class="symbol">¥</span>{{ product.price.toFixed(2) }}
-              </span>
-              <span v-if="product.originalPrice" class="original-price">
-                ¥{{ product.originalPrice.toFixed(2) }}
-              </span>
-              <span v-if="product.originalPrice" class="discount-tag">
-                -{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
+            <div class="product-info__price">
+              <span class="price-current">
+                <span class="price-symbol">¥</span>{{ formatPrice(product.price) }}
               </span>
             </div>
 
-            <!-- 配送信息 -->
-            <div class="product-info__delivery">
-              <el-icon color="#00a651"><Van /></el-icon>
-              <span v-if="product.fastDelivery">次日达，满 199 元包邮</span>
-              <span v-else>预计 3-5 天送达，满 199 元包邮</span>
+            <!-- 配送 -->
+            <div class="product-info__meta-row">
+              <span class="meta-label">配送</span>
+              <span class="meta-value">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00a651" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                次日达，满 199 元包邮
+              </span>
             </div>
 
             <!-- 店铺 -->
-            <div class="product-info__shop">
-              <span class="label">店铺</span>
+            <div class="product-info__meta-row">
+              <span class="meta-label">店铺</span>
               <router-link
+                v-if="product.shopName"
                 :to="{ path: '/products', query: { shopId: String(product.shopId) } }"
-                class="product-info__shop-link"
+                class="meta-link"
               >
                 {{ product.shopName }}
               </router-link>
+              <span v-else class="meta-value">-</span>
             </div>
 
-            <!-- 规格选择 -->
+            <!-- 规格 -->
             <div v-if="product.specs?.length" class="product-info__specs">
               <div v-for="spec in product.specs" :key="spec.id" class="spec-group">
                 <span class="spec-label">{{ spec.name }}</span>
@@ -204,75 +225,64 @@ onMounted(fetchProduct)
                   <button
                     v-for="opt in spec.options"
                     :key="opt.id"
-                    class="spec-option"
-                    :class="{
-                      'spec-option--active': selectedSpec?.id === opt.id,
-                      'spec-option--disabled': !opt.available,
-                    }"
-                    :disabled="!opt.available"
+                    class="spec-btn"
+                    :class="{ 'spec-btn--active': selectedSpec?.id === opt.id }"
                     @click="selectedSpec = opt"
                   >
                     {{ opt.name }}
-                    <span v-if="opt.additionalPrice" class="spec-add-price">
-                      +¥{{ opt.additionalPrice }}
-                    </span>
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- 数量选择（宠物显示"仅此一件"） -->
-            <div v-if="product.productType === 'pet'" class="product-info__pet-only">
-              <el-icon color="#1c49c2"><Warning /></el-icon>
-              <span>活体宠物仅此一件，售出即止</span>
+            <!-- 数量 -->
+            <div v-if="product.productType === 'pet'" class="pet-only-notice">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1c49c2" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              活体宠物仅此一件，售出即止
             </div>
             <div v-else class="product-info__quantity">
-              <span class="label">数量</span>
-              <div class="quantity-selector">
+              <span class="meta-label">数量</span>
+              <div class="qty-selector">
                 <button class="qty-btn" :disabled="quantity <= 1" @click="decreaseQty">-</button>
                 <span class="qty-value">{{ quantity }}</span>
                 <button class="qty-btn" :disabled="quantity >= product.stock" @click="increaseQty">+</button>
               </div>
-              <span class="stock-hint">库存 {{ product.stock }} 件</span>
+              <span class="stock-text">库存 {{ product.stock }} 件</span>
             </div>
 
             <!-- 操作按钮 -->
             <div class="product-info__actions">
-              <button class="btn btn-add-cart" @click="handleAddToCart">
-                <el-icon><ShoppingCart /></el-icon>
+              <button class="action-btn action-btn--cart" @click="handleAddToCart">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                 加入购物车
               </button>
-              <button class="btn btn-buy-now" @click="handleBuyNow">
-                立即购买
-              </button>
+              <button class="action-btn action-btn--buy" @click="handleBuyNow">立即购买</button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 标签页区域 -->
-      <div class="product-tabs-section">
+      <!-- 标签页 -->
+      <div class="tabs-section">
         <div class="container">
-          <div class="product-tabs">
-            <div class="product-tabs__nav">
+          <div class="tabs-card">
+            <div class="tabs-nav">
               <button
                 v-for="tab in tabs"
                 :key="tab.key"
-                class="product-tabs__nav-item"
-                :class="{ 'product-tabs__nav-item--active': activeTab === tab.key }"
+                class="tabs-nav__item"
+                :class="{ 'tabs-nav__item--active': activeTab === tab.key }"
                 @click="activeTab = tab.key"
               >
                 {{ tab.label }}
-                <span v-if="tab.key === 'reviews'" class="tab-count">({{ product.reviewCount }})</span>
+                <span v-if="tab.key === 'reviews'" class="tabs-nav__count">({{ product.reviewCount }})</span>
               </button>
             </div>
 
-            <div class="product-tabs__content">
-              <!-- 商品详情 -->
-              <div v-if="activeTab === 'detail'" class="tab-detail" v-html="product.description"></div>
+            <div class="tabs-body">
+              <div v-if="activeTab === 'detail'" class="tab-content" v-html="product.description"></div>
 
-              <!-- 规格参数 -->
-              <div v-if="activeTab === 'specs'" class="tab-specs">
+              <div v-if="activeTab === 'specs'" class="tab-content">
                 <table class="specs-table">
                   <tr v-for="row in product.specsTable" :key="row.label">
                     <th>{{ row.label }}</th>
@@ -281,21 +291,21 @@ onMounted(fetchProduct)
                 </table>
               </div>
 
-              <!-- 用户评价 -->
-              <div v-if="activeTab === 'reviews'" class="tab-reviews">
-                <div v-if="!product.reviews?.length" class="reviews-empty">
+              <div v-if="activeTab === 'reviews'" class="tab-content">
+                <div v-if="!product.reviews?.length" class="empty-reviews">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/></svg>
                   <p>暂无评价</p>
-                  <router-link to="/user/orders" class="go-review-link">去评价</router-link>
+                  <router-link to="/user/orders" class="review-link">去评价</router-link>
                 </div>
                 <div v-for="review in product.reviews" :key="review.id" class="review-item">
-                  <div class="review-header">
-                    <span class="review-user">{{ review.username }}</span>
-                    <span class="review-stars">
-                      <span v-for="i in review.rating" :key="i" class="star">★</span>
+                  <div class="review-item__header">
+                    <span class="review-item__user">{{ review.username }}</span>
+                    <span class="review-item__stars">
+                      <svg v-for="i in review.rating" :key="i" width="14" height="14" viewBox="0 0 24 24" fill="#ffc107" stroke="#ffc107" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </span>
-                    <span class="review-date">{{ review.createTime }}</span>
+                    <span class="review-item__date">{{ review.createTime }}</span>
                   </div>
-                  <p class="review-content">{{ review.content }}</p>
+                  <p class="review-item__content">{{ review.content }}</p>
                 </div>
               </div>
             </div>
@@ -306,13 +316,25 @@ onMounted(fetchProduct)
       <!-- 相关商品 -->
       <div v-if="relatedProducts.length" class="related-section">
         <div class="container">
-          <h2 class="section-title">相关商品推荐</h2>
+          <h2 class="section-heading">相关商品推荐</h2>
           <div class="related-grid">
-            <ProductCard
+            <router-link
               v-for="item in relatedProducts"
               :key="item.id"
-              v-bind="item"
-            />
+              :to="`/products/${item.id}`"
+              class="related-card"
+            >
+              <div class="related-card__img">
+                <img v-if="item.image" :src="item.image" :alt="item.name" />
+                <div v-else class="related-card__placeholder">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                </div>
+              </div>
+              <div class="related-card__body">
+                <h3 class="related-card__name">{{ item.name }}</h3>
+                <span class="related-card__price">¥{{ formatPrice(item.price) }}</span>
+              </div>
+            </router-link>
           </div>
         </div>
       </div>
@@ -322,76 +344,115 @@ onMounted(fetchProduct)
 
 <style scoped>
 .detail-page {
-  background-color: #f8f9fa;
+  background: #f5f7fa;
   min-height: calc(100vh - 15.2rem);
 }
 
 /* ========== 面包屑 ========== */
-.breadcrumb-section {
-  padding: 2rem 0;
+.breadcrumb-bar {
+  background: transparent;
+  padding: 2rem 0 0;
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.4rem;
+}
+
+.breadcrumb__link {
+  color: #666;
+  text-decoration: none;
+}
+.breadcrumb__link:hover { color: var(--color-brand-blue); }
+.breadcrumb__sep { color: #ccc; }
+.breadcrumb__current { color: #333; font-weight: 500; }
 
 /* ========== 主体布局 ========== */
 .product-main {
-  margin-bottom: 4.8rem;
+  padding: 3.2rem 0;
 }
 
 .product-main__inner {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 45fr 55fr;
   gap: 4.8rem;
   background: #fff;
-  border-radius: 1.2rem;
-  padding: 3.2rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-radius: 2rem;
+  padding: 4rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 /* ========== 图片画廊 ========== */
 .product-gallery {
   position: sticky;
-  top: 2.4rem;
+  top: 8rem;
+  align-self: start;
 }
 
 .product-gallery__main {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  background: #f8f9fa;
-  border-radius: 1.2rem;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, #e8edf5 0%, #d5dce8 100%);
+  border-radius: 1.6rem;
   overflow: hidden;
-  margin-bottom: 1.6rem;
+  margin-bottom: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
-.product-gallery__placeholder {
-  opacity: 0.4;
+.product-gallery__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.product-gallery__main:hover .product-gallery__img {
+  transform: scale(1.05);
+}
+
+.product-gallery__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.product-gallery__empty-text {
+  font-size: 1.4rem;
+  color: #bbb;
 }
 
 .product-gallery__thumbs {
   display: flex;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
-.product-gallery__thumb {
+.gallery-thumb {
   width: 7.2rem;
   height: 7.2rem;
   border: 2px solid transparent;
   border-radius: 0.8rem;
+  overflow: hidden;
   background: #f8f9fa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  opacity: 0.5;
-  transition: all 0.2s;
+  padding: 0;
+  transition: border-color 0.2s;
 }
 
-.product-gallery__thumb:hover { opacity: 0.8; }
-.product-gallery__thumb--active {
-  border-color: var(--color-brand-blue);
-  opacity: 1;
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
+
+.gallery-thumb:hover { border-color: #ccc; }
+.gallery-thumb--active { border-color: var(--color-brand-blue); }
 
 /* ========== 商品信息 ========== */
 .product-info__title-row {
@@ -402,327 +463,508 @@ onMounted(fetchProduct)
 }
 
 .product-info__title {
-  font-size: 2.4rem;
-  font-weight: var(--font-weight-bold);
+  font-size: 2.6rem;
+  font-weight: 700;
   color: #121212;
   line-height: 1.4;
   margin: 0;
 }
 
-.product-info__pet-tag {
+.pet-badge {
   flex-shrink: 0;
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
+  font-size: 1.2rem;
+  font-weight: 600;
   color: #fff;
-  background-color: var(--color-brand-blue);
-  padding: 0.4rem 1.2rem;
-  border-radius: var(--radius-md);
+  background: var(--color-brand-blue);
+  padding: 0.4rem 1rem;
+  border-radius: 0.4rem;
 }
 
-.product-info__shop-link {
-  color: var(--color-brand-blue);
-  text-decoration: none;
-  font-weight: var(--font-weight-medium);
-}
-
-.product-info__shop-link:hover {
-  text-decoration: underline;
-}
-
-.product-info__pet-only {
+.favorite-btn {
+  margin-left: auto;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  border: none;
+  background: #f5f5f5;
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 1.6rem;
-  background-color: #f0f4ff;
-  border-radius: var(--radius-md);
-  color: var(--color-brand-blue);
-  font-size: var(--text-body-sm);
-  font-weight: var(--font-weight-medium);
-  margin-bottom: 2rem;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
 }
+.favorite-btn:hover { background: #ffeaea; transform: scale(1.1); }
+.favorite-btn--active { background: #ffeaea; }
+.favorite-btn--active:hover { background: #fdd; }
 
+/* 评分 */
 .product-info__rating {
   display: flex;
   align-items: center;
-  gap: 1.2rem;
+  gap: 1rem;
   margin-bottom: 2rem;
   padding-bottom: 2rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.product-info__rating .stars { color: #ffc107; font-size: 1.6rem; letter-spacing: 1px; }
-.product-info__rating .star-empty { color: #ddd; }
-.product-info__rating .score { font-size: 1.6rem; font-weight: 600; color: #333; }
-.product-info__rating .count { font-size: 1.4rem; color: #999; cursor: pointer; }
-.product-info__rating .count:hover { color: var(--color-brand-blue); }
-
-/* 价格区域 */
-.product-info__price-box {
-  background: #fff5f5;
-  padding: 2rem;
-  border-radius: 0.8rem;
-  margin-bottom: 2rem;
-  display: flex;
-  align-items: baseline;
-  gap: 1.2rem;
-}
-
-.current-price {
-  font-size: 3.2rem;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-price-primary);
-}
-.current-price .symbol { font-size: 1.8rem; }
-.original-price { font-size: 1.6rem; color: #999; text-decoration: line-through; }
-.discount-tag {
-  background: var(--color-price-primary);
-  color: #fff;
-  padding: 0.4rem 0.8rem;
-  border-radius: 0.4rem;
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-/* 配送 */
-.product-info__delivery {
+.stars-row {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 2rem;
-  font-size: 1.4rem;
+  gap: 2px;
+}
+
+.rating-score {
+  font-size: 1.6rem;
+  font-weight: 600;
   color: #333;
 }
 
-/* 店铺 */
-.product-info__shop {
-  margin-bottom: 2.4rem;
+.review-count {
   font-size: 1.4rem;
-  display: flex;
-  gap: 1.2rem;
+  color: #999;
+  cursor: pointer;
 }
-.product-info__shop .label { color: #666; }
-.product-info__shop .value { color: var(--color-brand-blue); font-weight: 500; }
+.review-count:hover { color: var(--color-brand-blue); }
+
+/* 价格 */
+.product-info__price {
+  background: linear-gradient(135deg, #fef5f5 0%, #fde8e8 100%);
+  padding: 2.4rem;
+  border-radius: 1.2rem;
+  margin-bottom: 2.4rem;
+  border: 1px solid #fce4e4;
+}
+
+.price-current {
+  font-size: 3.6rem;
+  font-weight: 700;
+  color: var(--color-price-primary);
+}
+
+.price-symbol {
+  font-size: 2rem;
+}
+
+/* 元信息行 */
+.product-info__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.2rem 0;
+  font-size: 1.4rem;
+}
+
+.meta-label {
+  color: #999;
+  width: 4.8rem;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.meta-link {
+  color: var(--color-brand-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+.meta-link:hover { text-decoration: underline; }
 
 /* 规格 */
-.product-info__specs { margin-bottom: 2.4rem; }
-.spec-group { margin-bottom: 1.6rem; }
-.spec-label { font-size: 1.4rem; color: #666; margin-bottom: 1.2rem; display: block; }
-.spec-options { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.product-info__specs {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #f0f0f0;
+}
 
-.spec-option {
-  padding: 1rem 2rem;
-  border: 2px solid #ddd;
+.spec-group { margin-bottom: 1.6rem; }
+.spec-label { font-size: 1.4rem; color: #666; margin-bottom: 1rem; display: block; }
+.spec-options { display: flex; flex-wrap: wrap; gap: 1rem; }
+
+.spec-btn {
+  padding: 0.8rem 2.4rem;
+  border: 2px solid #e0e0e0;
   border-radius: 0.8rem;
   font-size: 1.4rem;
   background: #fff;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
-.spec-option:hover:not(:disabled) { border-color: var(--color-brand-blue); }
-.spec-option--active {
+
+.spec-btn:hover {
   border-color: var(--color-brand-blue);
-  background: #f0f6ff;
-  color: var(--color-brand-blue);
+  background: #f8fbff;
+}
+.spec-btn--active {
+  border-color: var(--color-brand-blue);
+  background: var(--color-brand-blue);
+  color: #fff;
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(28, 73, 194, 0.2);
 }
-.spec-option--disabled {
-  background: #f5f5f5;
-  color: #ccc;
-  cursor: not-allowed;
-}
-.spec-add-price { color: var(--color-price-primary); font-size: 1.2rem; margin-left: 0.4rem; }
 
 /* 数量 */
 .product-info__quantity {
   display: flex;
   align-items: center;
   gap: 1.6rem;
-  margin-bottom: 2.4rem;
+  margin: 2rem 0;
 }
-.product-info__quantity .label { font-size: 1.4rem; color: #666; }
-.stock-hint { font-size: 1.3rem; color: #999; }
 
-.quantity-selector {
+.qty-selector {
   display: flex;
   align-items: center;
-  border: 1px solid #ddd;
+  border: 1px solid #e0e0e0;
   border-radius: 0.8rem;
   overflow: hidden;
 }
+
 .qty-btn {
   width: 4rem;
   height: 4rem;
-  background: #f8f9fa;
+  background: #fafafa;
   border: none;
   font-size: 1.8rem;
+  color: #333;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
-.qty-btn:hover:not(:disabled) { background: #e9ecef; }
+.qty-btn:hover:not(:disabled) { background: #f0f0f0; }
 .qty-btn:disabled { color: #ccc; cursor: not-allowed; }
+
 .qty-value {
-  width: 6rem;
+  width: 5.6rem;
   height: 4rem;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.6rem;
   font-weight: 600;
-  border-left: 1px solid #ddd;
-  border-right: 1px solid #ddd;
+  border-left: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
+}
+
+.stock-text { font-size: 1.3rem; color: #999; }
+
+/* 活体宠物提示 */
+.pet-only-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.4rem 1.6rem;
+  background: #f0f4ff;
+  border-radius: 0.8rem;
+  color: var(--color-brand-blue);
+  font-size: 1.4rem;
+  font-weight: 500;
+  margin: 2rem 0;
 }
 
 /* 操作按钮 */
 .product-info__actions {
   display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.6rem;
+  margin-top: 2.4rem;
 }
-.btn {
-  width: 100%;
+
+.action-btn {
+  flex: 1;
   padding: 1.6rem;
   border: none;
-  border-radius: 0.8rem;
+  border-radius: 1.2rem;
   font-size: 1.6rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.8rem;
 }
-.btn-add-cart {
-  background: var(--color-brand-orange);
-  color: #fff;
-}
-.btn-add-cart:hover { background: var(--color-brand-orange-hover); }
-.btn-add-cart:active { transform: scale(0.98); }
 
-.btn-buy-now {
-  background: var(--color-price-primary);
+.action-btn--cart {
+  background: linear-gradient(135deg, #ff8c1a 0%, #ff6c10 100%);
   color: #fff;
+  box-shadow: 0 4px 16px rgba(255, 108, 16, 0.3);
 }
-.btn-buy-now:hover { background: #a02040; }
+.action-btn--cart:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 108, 16, 0.4); }
+.action-btn--cart:active { transform: scale(0.98) translateY(0); }
+
+.action-btn--buy {
+  background: linear-gradient(135deg, #c2185b 0%, #a02040 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(160, 32, 64, 0.3);
+}
+.action-btn--buy:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(160, 32, 64, 0.4); }
+.action-btn--buy:active { transform: scale(0.98) translateY(0); }
 
 /* ========== 标签页 ========== */
-.product-tabs-section {
-  margin-bottom: 4.8rem;
+.tabs-section {
+  padding: 0 0 4.8rem;
 }
 
-.product-tabs__nav {
+.tabs-card {
+  background: #fff;
+  border-radius: 2rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.tabs-nav {
   display: flex;
-  border-bottom: 2px solid #eee;
-  margin-bottom: 3.2rem;
+  border-bottom: 2px solid #f0f0f0;
+  padding: 0 3.2rem;
 }
 
-.product-tabs__nav-item {
-  padding: 1.6rem 3.2rem;
+.tabs-nav__item {
+  padding: 2rem 3.2rem;
   font-size: 1.6rem;
-  color: #666;
+  color: #999;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   margin-bottom: -2px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
-.product-tabs__nav-item:hover { color: var(--color-brand-blue); }
-.product-tabs__nav-item--active {
+.tabs-nav__item:hover { color: var(--color-brand-blue); }
+.tabs-nav__item--active {
   color: var(--color-brand-blue);
-  font-weight: 600;
+  font-weight: 700;
   border-bottom-color: var(--color-brand-blue);
 }
+.tabs-nav__count { font-size: 1.3rem; color: #999; margin-left: 0.4rem; }
 
-.tab-count { font-size: 1.3rem; color: #999; margin-left: 0.4rem; }
-
-.product-tabs__content {
-  background: #fff;
-  border-radius: 1.2rem;
+.tabs-body {
   padding: 3.2rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  min-height: 30rem;
+  min-height: 24rem;
 }
 
 /* 详情内容 */
-.tab-detail :deep(h3) {
+.tab-content :deep(h3) {
   font-size: 1.8rem;
   font-weight: 600;
   color: #121212;
   margin: 2.4rem 0 1.2rem;
 }
-.tab-detail :deep(h3:first-child) { margin-top: 0; }
-.tab-detail :deep(ul) { padding-left: 2rem; margin-bottom: 1.6rem; }
-.tab-detail :deep(li) { font-size: 1.5rem; color: #333; line-height: 1.8; margin-bottom: 0.6rem; }
-.tab-detail :deep(p) { font-size: 1.5rem; color: #333; line-height: 1.8; }
+.tab-content :deep(h3:first-child) { margin-top: 0; }
+.tab-content :deep(p) { font-size: 1.5rem; color: #333; line-height: 1.8; margin-bottom: 1.2rem; }
 
 /* 规格参数表 */
 .specs-table { width: 100%; border-collapse: collapse; }
-.specs-table th, .specs-table td { padding: 1.4rem 2rem; font-size: 1.4rem; border-bottom: 1px solid #f0f0f0; text-align: left; }
-.specs-table th { width: 12rem; color: #666; font-weight: 500; background: #fafafa; }
+.specs-table th, .specs-table td {
+  padding: 1.4rem 2rem;
+  font-size: 1.4rem;
+  border-bottom: 1px solid #f5f5f5;
+  text-align: left;
+}
+.specs-table th {
+  width: 12rem;
+  color: #999;
+  font-weight: 500;
+  background: #fafafa;
+}
 .specs-table td { color: #333; }
 
-/* 评价 */
-.review-item {
-  padding: 2rem 0;
-  border-bottom: 1px solid #f0f0f0;
+/* 空评价 */
+.empty-reviews {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 4rem 0;
+  color: #bbb;
 }
-.review-item:last-child { border-bottom: none; }
-.review-header { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1rem; }
-.review-user { font-size: 1.4rem; font-weight: 600; color: #333; }
-.review-stars .star { color: #ffc107; font-size: 1.4rem; }
-.review-date { font-size: 1.3rem; color: #999; margin-left: auto; }
-.review-content { font-size: 1.4rem; color: #555; line-height: 1.6; }
-.reviews-empty { text-align: center; padding: 4rem 0; color: #999; font-size: 1.5rem; }
-.reviews-empty p { margin-bottom: 1.6rem; }
-.go-review-link {
+.empty-reviews p { font-size: 1.5rem; }
+.review-link {
   display: inline-block;
   padding: 0.8rem 2.4rem;
-  background: #ff6c10;
+  background: var(--color-brand-orange);
   color: #fff;
-  border-radius: 6px;
+  border-radius: 0.8rem;
   text-decoration: none;
   font-size: 1.4rem;
   font-weight: 600;
-  transition: background 0.2s;
 }
-.go-review-link:hover { background: #e55a00; }
+.review-link:hover { background: var(--color-brand-orange-hover); }
+
+/* 评价项 */
+.review-item {
+  padding: 2rem 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.review-item:last-child { border-bottom: none; }
+.review-item__header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 0.8rem;
+}
+.review-item__user { font-size: 1.4rem; font-weight: 600; color: #333; }
+.review-item__stars { display: flex; gap: 2px; }
+.review-item__date { font-size: 1.3rem; color: #999; margin-left: auto; }
+.review-item__content { font-size: 1.4rem; color: #555; line-height: 1.6; }
 
 /* ========== 相关商品 ========== */
 .related-section {
   padding-bottom: 6.4rem;
 }
-.section-title {
-  font-size: 2.4rem;
-  font-weight: var(--font-weight-bold);
-  margin-bottom: 3.2rem;
+
+.section-heading {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 2.4rem;
+  padding-left: 1.6rem;
+  border-left: 4px solid var(--color-brand-blue);
 }
+
 .related-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 3.2rem;
+  gap: 2.4rem;
 }
-@media (max-width: 992px) { .related-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 576px) { .related-grid { grid-template-columns: repeat(2, 1fr); gap: 2rem; } }
+
+.related-card {
+  display: block;
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+}
+.related-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.related-card__img {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #f8f8f8;
+  overflow: hidden;
+}
+.related-card__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.related-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.related-card__body {
+  padding: 1.6rem;
+}
+
+.related-card__name {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-card__price {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-price-primary);
+}
 
 /* ========== 骨架屏 ========== */
 .detail-loading { padding: 3.2rem 0; }
-.skeleton-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4.8rem; background: #fff; border-radius: 1.2rem; padding: 3.2rem; }
-.skeleton-gallery { aspect-ratio: 1 / 1; background: #f0f0f0; border-radius: 1.2rem; animation: pulse 1.5s ease-in-out infinite; }
-.skeleton-info { display: flex; flex-direction: column; gap: 2rem; padding-top: 2rem; }
-.skeleton-line { background: #f0f0f0; border-radius: 0.6rem; animation: pulse 1.5s ease-in-out infinite; }
+
+.skeleton-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4.8rem;
+  background: #fff;
+  border-radius: 1.6rem;
+  padding: 3.2rem;
+}
+
+.skeleton-gallery {
+  aspect-ratio: 1;
+  background: #f0f0f0;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.skeleton-pulse {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding-top: 1rem;
+}
+
+.skeleton-line {
+  background: #f0f0f0;
+  border-radius: 0.6rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+  animation: shimmer 1.5s infinite;
+}
+
 .skeleton-line--title { height: 3rem; width: 80%; }
 .skeleton-line--short { height: 2rem; width: 40%; }
-.skeleton-line--price { height: 4rem; width: 50%; }
-.skeleton-line--btn { height: 5rem; width: 100%; border-radius: 0.8rem; }
+.skeleton-line--price { height: 4.8rem; width: 45%; border-radius: 1.2rem; }
+.skeleton-line--text { height: 1.6rem; width: 90%; }
+.skeleton-line--btn { height: 5.6rem; width: 100%; border-radius: 1.2rem; }
 
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
 
 /* ========== 响应式 ========== */
 @media (max-width: 992px) {
-  .product-main__inner { grid-template-columns: 1fr; gap: 3.2rem; }
+  .product-main__inner {
+    grid-template-columns: 1fr;
+    gap: 2.4rem;
+    padding: 2.4rem;
+  }
   .product-gallery { position: static; }
-  .skeleton-row { grid-template-columns: 1fr; }
+  .skeleton-main { grid-template-columns: 1fr; }
+  .related-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 576px) {
+  .product-main__inner { padding: 2rem; border-radius: 1.2rem; }
+  .product-info__title { font-size: 2rem; }
+  .price-current { font-size: 2.8rem; }
+  .action-btn { font-size: 1.4rem; padding: 1.4rem; }
+  .tabs-nav { padding: 0 1.6rem; }
+  .tabs-nav__item { padding: 1.4rem 2rem; font-size: 1.4rem; }
+  .tabs-body { padding: 2rem; }
+  .related-grid { grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
 }
 </style>

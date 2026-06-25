@@ -2,8 +2,8 @@ import { get, post, put, del } from './request'
 
 // Products
 export const getAdminProducts = () => get('/admin/products')
-export const createAdminProduct = (data) => post('/admin/products', data)
-export const updateAdminProduct = (id, data) => put(`/admin/products/${id}`, data)
+export const createAdminProduct = (formData) => post('/admin/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const updateAdminProduct = (id, formData) => put(`/admin/products/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 export const deleteAdminProduct = (id) => del(`/admin/products/${id}`)
 
 // Orders

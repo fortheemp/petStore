@@ -86,11 +86,11 @@ const getStatusClass = (status) => {
         <div class="recent-orders">
           <div v-for="order in recentOrders" :key="order.id" class="recent-order">
             <div class="recent-order__info">
-              <span class="recent-order__no">{{ order.orderNo }}</span>
-              <span class="recent-order__user">{{ order.username }}</span>
+              <span class="recent-order__no">订单 #{{ order.id }}</span>
+              <span class="recent-order__user">用户ID：{{ order.userId }}</span>
             </div>
             <div class="recent-order__right">
-              <span class="recent-order__amount">¥{{ order.payAmount }}</span>
+              <span class="recent-order__amount">¥{{ order.totalAmount }}</span>
               <span class="status" :class="getStatusClass(order.status)">{{ getStatusText(order.status) }}</span>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getProducts, categoryMap, productTypeMap, getCategoryCounts,
-  subcategoriesMap, supplySubcategoriesMap, brandsMap, priceRanges, ratingOptions,
+  subcategoriesMap, supplySubcategoriesMap, priceRanges, ratingOptions,
 } from '@/api/product'
 import { getShopById } from '@/api/shop'
 import ProductCard from '@/components/common/ProductCard.vue'
@@ -70,7 +70,6 @@ const currentKeyword = computed(() => route.query.keyword || '')
 
 // 子分类 & 筛选状态
 const currentSubcategory = ref('')
-const selectedBrand = ref('')
 const selectedPriceRange = ref('')
 const selectedRating = ref('')
 
@@ -95,22 +94,6 @@ const subcategoryList = computed(() => {
   }
   // 未选动物：显示所有动物大类的周边入口
   return Object.keys(categoryMap).map((k) => categoryMap[k].label)
-})
-
-// 当前主分类下的品牌列表
-const brandList = computed(() => {
-  if (currentProductType.value === 'pet') {
-    // 宠物：按动物类型显示品牌
-    if (currentCategory.value && brandsMap[currentCategory.value]) {
-      return brandsMap[currentCategory.value]
-    }
-    return []
-  }
-  // 宠物周边：按动物类型显示品牌
-  if (currentCategory.value && brandsMap[currentCategory.value]) {
-    return brandsMap[currentCategory.value]
-  }
-  return []
 })
 
 // 排序选项
@@ -156,6 +139,8 @@ const fetchProducts = async () => {
       shopId: currentShopId.value,
       keyword: currentKeyword.value,
       sort: currentSort.value,
+      priceRange: selectedPriceRange.value,
+      rating: selectedRating.value,
     })
     products.value = data.list
     total.value = data.total
@@ -199,7 +184,7 @@ const handleAddToCart = (id) => {
 // 主分类点击（侧边栏动物分类）
 const handleCategoryClick = (key) => {
   currentSubcategory.value = ''
-  selectedBrand.value = ''
+
   selectedPriceRange.value = ''
   selectedRating.value = ''
   const newCategory = currentCategory.value === key ? '' : key
@@ -225,7 +210,7 @@ const handleSubcategoryClick = (sub) => {
 // 重置所有筛选
 const resetFilters = () => {
   currentSubcategory.value = ''
-  selectedBrand.value = ''
+
   selectedPriceRange.value = ''
   selectedRating.value = ''
 }
@@ -233,7 +218,7 @@ const resetFilters = () => {
 // 查看全部商品
 const viewAllProducts = () => {
   currentSubcategory.value = ''
-  selectedBrand.value = ''
+
   selectedPriceRange.value = ''
   selectedRating.value = ''
   currentPage.value = 1
@@ -243,7 +228,7 @@ const viewAllProducts = () => {
 // 大类点击（从 header 或本页触发）
 const handleProductTypeClick = (type) => {
   currentSubcategory.value = ''
-  selectedBrand.value = ''
+
   selectedPriceRange.value = ''
   selectedRating.value = ''
   const newType = currentProductType.value === type ? '' : type
@@ -262,6 +247,18 @@ watch(
     fetchProducts()
   },
 )
+
+// 监听侧边栏筛选变化
+watch([selectedPriceRange, selectedRating], () => {
+  currentPage.value = 1
+  fetchProducts()
+})
+
+// 监听排序变化
+watch(currentSort, () => {
+  currentPage.value = 1
+  fetchProducts()
+})
 
 onMounted(async () => {
   categoryCounts.value = await getCategoryCounts()
@@ -347,22 +344,6 @@ onMounted(async () => {
       <div class="container product-content__layout">
         <!-- 左侧筛选栏 -->
         <aside class="sidebar">
-          <!-- 品牌筛选（仅选中主分类后显示） -->
-          <div v-if="brandList.length > 0" class="sidebar__section">
-            <h3 class="sidebar__title">品牌</h3>
-            <ul class="sidebar__list">
-              <li
-                v-for="brand in brandList"
-                :key="brand"
-                class="sidebar__item sidebar__item--filter"
-                :class="{ 'sidebar__item--active': selectedBrand === brand }"
-                @click="selectedBrand = selectedBrand === brand ? '' : brand"
-              >
-                <span class="sidebar__item-label">{{ brand }}</span>
-              </li>
-            </ul>
-          </div>
-
           <!-- 价格区间 -->
           <div class="sidebar__section">
             <h3 class="sidebar__title">价格区间</h3>
@@ -397,7 +378,7 @@ onMounted(async () => {
 
           <!-- 重置按钮 -->
           <button
-            v-if="selectedBrand || selectedPriceRange || selectedRating"
+            v-if="selectedPriceRange || selectedRating"
             class="sidebar__reset"
             @click="resetFilters"
           >
@@ -479,6 +460,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 1.6rem;
 }
 
 .page-header__left {
@@ -514,6 +498,20 @@ onMounted(async () => {
 
 .page-header__sort {
   flex-shrink: 0;
+}
+
+.page-header__sort :deep(.el-radio-button__inner) {
+  font-size: 1.3rem;
+  padding: 0.8rem 1.8rem;
+  border-color: #e0e0e0;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.page-header__sort :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background-color: var(--color-brand-blue);
+  border-color: var(--color-brand-blue);
+  box-shadow: -1px 0 0 0 var(--color-brand-blue);
 }
 
 /* 分类圆形图标 */
@@ -565,11 +563,16 @@ onMounted(async () => {
 
 .category-icon:hover .category-icon__circle {
   background-color: #e8edff;
+  box-shadow: 0 2px 12px rgba(28, 73, 194, 0.18);
 }
 
 .category-icon--active .category-icon__circle {
-  background-color: #e8edff;
+  background-color: var(--color-brand-blue);
   border-color: var(--color-brand-blue);
+}
+
+.category-icon--active .category-icon__svg {
+  color: #fff;
 }
 
 .category-icon__label {
@@ -602,7 +605,7 @@ onMounted(async () => {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 2.4rem;
 }
 
@@ -621,10 +624,14 @@ onMounted(async () => {
 .sidebar__section {
   padding: 0 var(--spacing-4);
   margin-bottom: 2.4rem;
+  padding-bottom: 2.4rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .sidebar__section:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .sidebar__title {
@@ -648,17 +655,20 @@ onMounted(async () => {
   justify-content: space-between;
   padding: var(--spacing-2) var(--spacing-3);
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: all 0.2s ease;
   border-radius: var(--radius-md);
   margin-bottom: 0.2rem;
+  border-left: 3px solid transparent;
 }
 
 .sidebar__item:hover {
   background-color: var(--color-bg-secondary);
+  padding-left: calc(var(--spacing-3) + 0.4rem);
 }
 
 .sidebar__item--active {
   background-color: #f0f4ff;
+  border-left-color: var(--color-brand-blue);
 }
 
 .sidebar__item--filter {
