@@ -1,86 +1,122 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { createOrder as apiCreateOrder, getOrderList, getOrderDetail, payOrder as apiPayOrder, cancelOrder as apiCancelOrder, confirmOrder as apiConfirmOrder, reviewOrder as apiReviewOrder } from '@/api/order'
+import { useUserStore } from './user'
 
 const statusMap = {
+  '-4': '管理员退款',
+  '-3': '退款成功',
+  '-2': '退款中',
   '-1': '已取消',
   '0': '待付款',
   '1': '已付款',
   '2': '已发货',
   '3': '已收货',
+  '4': '已完成',
 }
 
 export const useOrderStore = defineStore('order', () => {
   const orders = ref([])
 
-  const init = () => {
-    const saved = localStorage.getItem('petstore_orders')
-    if (saved) {
-      try { orders.value = JSON.parse(saved) } catch { orders.value = [] }
-    }
+  function getUserId() {
+    const userStore = useUserStore()
+    return userStore.userInfo?.id
   }
 
-  const createOrder = ({ items, address, remark, payMethod, totalAmount, shippingFee }) => {
-    const now = new Date()
-    const order = {
-      id: 'ORD' + Date.now(),
-      orderNo: 'PET' + Date.now(),
-      status: 0,
-      items: items.map((item) => ({
-        productId: item.productId,
-        name: item.name,
-        image: item.image,
-        price: item.price,
-        quantity: item.quantity,
-        spec: item.spec.value,
-      })),
-      address: { ...address },
-      totalAmount,
-      shippingFee,
-      payAmount: totalAmount + shippingFee,
-      payMethod,
-      remark,
-      createTime: now.toISOString(),
-      payTime: null,
-      shipTime: null,
-      receiveTime: null,
-    }
-    orders.value.unshift(order)
-    save()
-    return order
+  async function loadOrders() {
+    const userId = getUserId()
+    if (!userId) { orders.value = []; return }
+    try {
+      const res = await getOrderList(userId)
+      const list = Array.isArray(res) ? res : []
+      // 后端 list 不含 items，逐个获取明细
+      const enriched = await Promise.all(list.map(async (o) => {
+        let items = []
+        try {
+          const detail = await getOrderDetail(o.id)
+          items = Array.isArray(detail?.items) ? detail.items : []
+        } catch {}
+        return {
+          ...o,
+          orderNo: `PS${String(o.id).padStart(8, '0')}`,
+          createTime: o.createdAt,
+          payAmount: Number(o.totalAmount) || 0,
+          items: items.map((it) => ({
+            productId: it.productId,
+            name: it.productName,
+            image: it.productImage || '',
+            price: Number(it.price) || 0,
+            quantity: it.quantity || 1,
+            spec: it.spec || '',
+          })),
+        }
+      }))
+      orders.value = enriched
+    } catch { orders.value = [] }
   }
 
-  const payOrder = (orderId) => {
-    const order = orders.value.find((o) => o.id === orderId)
-    if (order) {
-      order.status = 1
-      order.payTime = new Date().toISOString()
-      save()
-    }
+  async function createOrder({ addressId, cartItemIds }) {
+    const userId = getUserId()
+    if (!userId) return null
+    try {
+      const res = await apiCreateOrder({ addressId, cartItemIds }, userId)
+      await loadOrders()
+      return res
+    } catch { return null }
   }
 
-  const shipOrder = (orderId) => {
-    const order = orders.value.find((o) => o.id === orderId)
-    if (order) {
-      order.status = 2
-      order.shipTime = new Date().toISOString()
-      save()
-    }
+  async function payOrderAction(orderId) {
+    try { await apiPayOrder(orderId); await loadOrders() } catch {}
   }
 
-  const cancelOrder = (orderId) => {
-    const order = orders.value.find((o) => o.id === orderId)
-    if (order) {
-      order.status = -1
-      save()
-    }
+  async function cancelOrderAction(orderId, reason) {
+    try { await apiCancelOrder(orderId, { reason }); await loadOrders() } catch {}
   }
 
-  const confirmReceive = (orderId) => {
-    const order = orders.value.find((o) => o.id === orderId)
-    if (order) {
-      order.status = 3
-      order.receiveTime = new Date().toISOString()
-      save()
+  async function confirmReceive(orderId) {
+    try { await apiConfirmOrder(orderId); await loadOrders() } catch {}
+  }
+
+  async function submitReview(orderId, data) {
+    const userId = getUserId()
+    if (!userId) return
+    try { await apiReviewOrder(orderId, { userId, reviews: data }); await loadOrders() } catch {}
+  }
+
+  async function getOrderDetailById(orderId) {
+    try {
+      const res = await getOrderDetail(orderId)
+      if (res && res.order) {
+        const o = res.order
+        let address = {}
+        try { address = JSON.parse(o.addressSnapshot || '{}') } catch {}
+        const totalAmount = Number(o.totalAmount) || 0
+        return {
+          ...o,
+          orderNo: `PS${String(o.id).padStart(8, '0')}`,
+          createTime: o.createdAt,
+          payTime: o.updatedAt,
+          totalAmount,
+          payAmount: totalAmount,
+          shippingFee: totalAmount >= 199 ? 0 : 10,
+          address,
+          payMethod: 'wechat',
+          remark: '',
+          reviewed: false,
+          items: Array.isArray(res.items) ? res.items.map((it) => ({
+            productId: it.productId,
+            name: it.productName,
+            image: it.productImage || '',
+            price: Number(it.price) || 0,
+            quantity: it.quantity || 1,
+            spec: it.spec || '',
+          })) : [],
+        }
+      }
+      return null
+    } catch (e) {
+      console.error('store.getOrderDetailById: error=', e)
+      return null
     }
   }
 
@@ -89,62 +125,12 @@ export const useOrderStore = defineStore('order', () => {
     return orders.value.filter((o) => o.status === status)
   }
 
-  const getOrderById = (orderId) => {
-    return orders.value.find((o) => o.id === orderId)
-  }
-
+  const getOrderById = (orderId) => orders.value.find((o) => o.id === orderId)
   const getStatusText = (status) => statusMap[String(status)] || '未知'
 
-  // 评价相关
-  const REVIEWS_KEY = 'petstore_reviews'
-
-  const submitReview = (orderId, reviews) => {
-    const order = orders.value.find((o) => o.id === orderId)
-    if (!order) return false
-    order.reviewed = true
-    order.reviewAt = new Date().toISOString()
-    save()
-
-    const allReviews = loadReviews()
-    reviews.forEach((r) => {
-      allReviews.push({
-        orderId,
-        productId: r.productId,
-        rating: r.rating,
-        content: r.content,
-        createTime: order.reviewAt,
-      })
-    })
-    localStorage.setItem(REVIEWS_KEY, JSON.stringify(allReviews))
-    return true
-  }
-
-  const getOrderReviews = (orderId) => {
-    return loadReviews().filter((r) => r.orderId === orderId)
-  }
-
-  const getProductReviews = (productId) => {
-    return loadReviews().filter((r) => r.productId === productId)
-  }
-
-  function loadReviews() {
-    const saved = localStorage.getItem(REVIEWS_KEY)
-    if (saved) {
-      try { return JSON.parse(saved) } catch { }
-    }
-    return []
-  }
-
-  const save = () => {
-    localStorage.setItem('petstore_orders', JSON.stringify(orders.value))
-  }
-
-  init()
-
   return {
-    orders,
-    createOrder, payOrder, shipOrder, cancelOrder, confirmReceive,
+    orders, loadOrders, createOrder, payOrder: payOrderAction, cancelOrder: cancelOrderAction,
+    confirmReceive, submitReview, getOrderDetailById,
     getOrdersByStatus, getOrderById, getStatusText,
-    submitReview, getOrderReviews, getProductReviews,
   }
 })

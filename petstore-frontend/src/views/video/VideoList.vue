@@ -107,8 +107,13 @@ const handleViewProduct = (productId) => {
   router.push(`/products/${productId}`)
 }
 
-// Mock video cover color
-const coverColors = ['#3b5998', '#e74c3c', '#27ae60', '#f39c12']
+// Mock video cover — 每个视频用不同的渐变主题
+const coverThemes = [
+  { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '🐱' },
+  { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: '🐕' },
+  { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: '🐾' },
+  { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', icon: '🎾' },
+]
 
 onMounted(() => {
   fetchVideos()
@@ -151,11 +156,15 @@ onMounted(() => {
           class="video-card"
           @click="handlePlayVideo(video)"
         >
-          <div class="video-card__cover" :style="{ background: coverColors[idx % coverColors.length] }">
+          <div class="video-card__cover" :style="{ background: coverThemes[idx % coverThemes.length].bg }">
+            <div class="video-card__cover-icon">{{ coverThemes[idx % coverThemes.length].icon }}</div>
             <div class="video-card__cover-overlay">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" opacity="0.7"/>
-              </svg>
+              <div class="video-card__play-btn">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,0.9)" stroke="none"/>
+                  <polygon points="10 8 16 12 10 16" fill="#333" stroke="none"/>
+                </svg>
+              </div>
             </div>
             <div class="video-card__duration">{{ video.duration }}</div>
           </div>
@@ -305,12 +314,12 @@ onMounted(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .video-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 
 .video-card__cover {
@@ -320,6 +329,18 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: #fff;
+  overflow: hidden;
+}
+
+.video-card__cover-icon {
+  font-size: 48px;
+  opacity: 0.25;
+  transition: all 0.3s ease;
+}
+
+.video-card:hover .video-card__cover-icon {
+  opacity: 0.4;
+  transform: scale(1.2);
 }
 
 .video-card__cover-overlay {
@@ -328,12 +349,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.2);
-  transition: background 0.3s;
+  background: rgba(0, 0, 0, 0.15);
+  transition: background 0.3s ease;
 }
 
 .video-card:hover .video-card__cover-overlay {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.video-card__play-btn {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.3s ease;
+}
+
+.video-card:hover .video-card__play-btn {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .video-card__duration {

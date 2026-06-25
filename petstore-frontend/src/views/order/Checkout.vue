@@ -23,26 +23,26 @@ const selectedAddress = computed(() => addresses.value.find((a) => a.id === sele
 const remark = ref('')
 const payMethod = ref('wechat')
 
-const submitOrder = () => {
+const submitOrder = async () => {
   if (selectedItems.value.length === 0) {
     ElMessage.warning('没有可结算的商品')
     return
   }
-  const orderData = {
-    items: selectedItems.value,
-    address: {
-      ...selectedAddress.value,
-      address: `${selectedAddress.value.province}${selectedAddress.value.city}${selectedAddress.value.district}${selectedAddress.value.detail}`,
-    },
-    remark: remark.value,
-    payMethod: payMethod.value,
-    totalAmount: totalAmount.value,
-    shippingFee: shippingFee.value,
+  if (!selectedAddressId.value) {
+    ElMessage.warning('请选择收货地址')
+    return
   }
-  const order = orderStore.createOrder(orderData)
-  selectedItems.value.forEach((item) => cart.removeItem(item.id))
-  ElMessage.success('订单创建成功')
-  router.push('/user/orders')
+  const cartItemIds = selectedItems.value.map((item) => item.id)
+  const result = await orderStore.createOrder({
+    addressId: selectedAddressId.value,
+    cartItemIds,
+  })
+  if (result) {
+    ElMessage.success('订单创建成功')
+    router.push('/user/orders')
+  } else {
+    ElMessage.error('订单创建失败')
+  }
 }
 </script>
 
@@ -91,7 +91,8 @@ const submitOrder = () => {
           <div class="checkout-items">
             <div v-for="item in selectedItems" :key="item.id" class="checkout-item">
               <div class="checkout-item__image">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+                <img v-if="item.image" :src="item.image" :alt="item.name" />
+                <svg v-else width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
@@ -99,7 +100,7 @@ const submitOrder = () => {
               </div>
               <div class="checkout-item__info">
                 <p class="checkout-item__name">{{ item.name }}</p>
-                <p class="checkout-item__spec">规格：{{ item.spec.value }}</p>
+                <p v-if="item.spec" class="checkout-item__spec">规格：{{ item.spec.value }}</p>
               </div>
               <div class="checkout-item__price">¥{{ item.price.toFixed(2) }}</div>
               <div class="checkout-item__qty">x{{ item.quantity }}</div>

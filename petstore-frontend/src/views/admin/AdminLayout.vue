@@ -22,6 +22,10 @@ const handleLogout = () => {
   ElMessage.success('已退出登录')
   router.push('/')
 }
+
+const handleCommand = (cmd) => {
+  if (cmd === 'logout') handleLogout()
+}
 </script>
 
 <template>
@@ -71,7 +75,7 @@ const handleLogout = () => {
         </button>
         <div class="admin-header__right">
           <router-link to="/" class="admin-header__link">前台首页</router-link>
-          <el-dropdown trigger="click">
+          <el-dropdown trigger="click" @command="handleCommand">
             <div class="admin-header__user">
               <el-avatar :size="28" class="admin-header__avatar">
                 {{ user.displayName.charAt(0) }}
@@ -80,7 +84,7 @@ const handleLogout = () => {
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleLogout">
+                <el-dropdown-item command="logout">
                   <span style="color: #e74c3c;">退出登录</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
