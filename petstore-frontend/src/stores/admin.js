@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { get, post, del, postForm, putForm } from '@/api'
+import { get, post, put, del, postForm, putForm } from '@/api'
 
 export const useAdminStore = defineStore('admin', () => {
   // ===== 状态 =====
@@ -8,6 +8,7 @@ export const useAdminStore = defineStore('admin', () => {
   const orders = ref([])
   const users = ref([])
   const shops = ref([])
+  const videos = ref([])
   const loading = ref(false)
   const loaded = ref(false)
 
@@ -29,16 +30,13 @@ export const useAdminStore = defineStore('admin', () => {
     return res.data
   }
 
-  const addProduct = async (formData) => {
-    // formData 应为 FormData 对象，或自动转为 FormData 的普通对象
-    const fd = formData instanceof FormData ? formData : objectToFormData(formData)
+  const addProduct = async (fd) => {
     const res = await postForm('/admin/products', fd)
     if (res.data.code === 200) await fetchProducts()
     return res.data
   }
 
-  const updateProduct = async (id, formData) => {
-    const fd = formData instanceof FormData ? formData : objectToFormData(formData)
+  const updateProduct = async (id, fd) => {
     const res = await putForm(`/admin/products/${id}`, fd)
     if (res.data.code === 200) await fetchProducts()
     return res.data
@@ -109,12 +107,46 @@ export const useAdminStore = defineStore('admin', () => {
     return res.data
   }
 
+  // ===== 视频管理 =====
+  const fetchVideos = async () => {
+    const res = await get('/admin/videos')
+    if (res.data.code === 200) videos.value = res.data.data || []
+    return res.data
+  }
+
+  const addVideo = async (fd) => {
+    const res = await postForm('/admin/videos', fd)
+    if (res.data.code === 200) await fetchVideos()
+    return res.data
+  }
+
+  const updateVideo = async (id, data) => {
+    // 后端使用 @RequestParam，必须用 FormData 或 query params
+    const fd = data instanceof FormData ? data : new FormData()
+    if (!(data instanceof FormData)) {
+      if (data.title !== undefined) fd.append('title', data.title)
+      if (data.url !== undefined) fd.append('url', data.url || '')
+      if (data.productId !== undefined) fd.append('productId', data.productId)
+    }
+    const res = await putForm(`/admin/videos/${id}`, fd)
+    if (res.data.code === 200) await fetchVideos()
+    return res.data
+  }
+
+  const deleteVideo = async (id) => {
+    const res = await del(`/admin/videos/${id}`)
+    if (res.data.code === 200) {
+      videos.value = videos.value.filter((v) => v.id !== id)
+    }
+    return res.data
+  }
+
   // ===== 全部加载 =====
   const loadAll = async () => {
     if (loaded.value) return
     loading.value = true
     try {
-      await Promise.all([fetchProducts(), fetchOrders(), fetchUsers(), fetchShops()])
+      await Promise.all([fetchProducts(), fetchOrders(), fetchUsers(), fetchShops(), fetchVideos()])
       loaded.value = true
     } finally {
       loading.value = false
@@ -122,28 +154,15 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   return {
-    products, orders, users, shops, loading, loaded,
+    products, orders, users, shops, videos, loading, loaded,
     totalProducts, totalUsers, totalOrders, pendingOrders, todaySales,
     fetchProducts, addProduct, updateProduct, deleteProduct,
     fetchShops,
     fetchOrders, shipOrder, approveRefund, rejectRefund,
     fetchUsers, deleteUser,
+    fetchVideos, addVideo, updateVideo, deleteVideo,
     loadAll,
   }
 })
 
-// 工具函数：普通对象 → FormData
-function objectToFormData(obj) {
-  const fd = new FormData()
-  for (const key of Object.keys(obj)) {
-    const val = obj[key]
-    if (val === undefined || val === null) continue
-    if (val instanceof File) {
-      fd.append(key, val)
-    } else {
-      fd.append(key, String(val))
-    }
-  }
-  return fd
-}
 

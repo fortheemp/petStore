@@ -146,5 +146,6 @@ export const useOrderStore = defineStore('order', () => {
     createOrder, payOrder, shipOrder, cancelOrder, confirmReceive,
     getOrdersByStatus, getOrderById, getStatusText,
     submitReview, getOrderReviews, getProductReviews,
+    _save: save, // 供 Checkout.vue 同步后端订单到 localStorage
   }
 })

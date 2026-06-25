@@ -1,8 +1,15 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAddressStore } from '@/stores/address'
+import { useUserStore } from '@/stores/user'
 
 const addressStore = useAddressStore()
+const userStore = useUserStore()
+const userId = computed(() => userStore.userInfo?.id)
+
+onMounted(() => {
+  if (userId.value) addressStore.fetchAll(userId.value)
+})
 
 const dialogVisible = ref(false)
 const isEditing = ref(false)
@@ -95,30 +102,39 @@ const handleSave = async () => {
     return
   }
 
-  const data = { ...form.value }
-  if (isEditing.value) {
-    addressStore.updateAddress(editingId.value, data)
-    ElMessage.success('修改成功')
-  } else {
-    addressStore.addAddress(data)
-    ElMessage.success('新增成功')
+  if (!userId.value) {
+    ElMessage.error('请先登录')
+    return
   }
-  dialogVisible.value = false
+
+  const data = { ...form.value }
+  try {
+    if (isEditing.value) {
+      await addressStore.updateAddress(editingId.value, data)
+      ElMessage.success('修改成功')
+    } else {
+      await addressStore.addAddress(userId.value, data)
+      ElMessage.success('新增成功')
+    }
+    dialogVisible.value = false
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const handleDelete = (addr) => {
   ElMessageBox.confirm(
-    `确定要删除「${addr.name}」的收货地址吗？`,
+    `确定要删除「${addr.receiverName || addr.name}」的收货地址吗？`,
     '删除确认',
     { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-  ).then(() => {
-    addressStore.deleteAddress(addr.id)
+  ).then(async () => {
+    await addressStore.deleteAddress(addr.id)
     ElMessage.success('已删除')
   }).catch(() => {})
 }
 
-const handleSetDefault = (id) => {
-  addressStore.setDefault(id)
+const handleSetDefault = async (id) => {
+  await addressStore.setDefault(id)
   ElMessage.success('已设为默认')
 }
 
@@ -147,7 +163,7 @@ const maskPhone = (phone) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
     <div v-for="addr in addressStore.addresses" :key="addr.id" class="address-card" :class="{ 'address-card--default': addr.isDefault }">
       <div class="address-card__header">
         <div class="address-card__user">
-          <span class="address-card__name">{{ addr.name }}</span>
+          <span class="address-card__name">{{ addr.receiverName || addr.name }}</span>
           <span class="address-card__phone">{{ maskPhone(addr.phone) }}</span>
           <span v-if="addr.isDefault" class="address-card__badge">默认</span>
         </div>

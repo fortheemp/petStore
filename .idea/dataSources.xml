@@ -2,7 +2,7 @@
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
     <data-source source="LOCAL" name="petstore" uuid="797dc393-b1e0-4f5d-84fe-57aaf7e6481e">
-      <driver-ref>sqlite.xerial</driver-ref>
+      <driver-ref>6f79837c-08d8-4d6d-bf3e-7e4bb8b58698</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/petstore-server/petstore.db</jdbc-url>
@@ -17,7 +17,7 @@
       </libraries>
     </data-source>
     <data-source source="LOCAL" name="petstore [2]" uuid="b644d017-0756-400a-828a-f8565eec1575">
-      <driver-ref>sqlite.xerial</driver-ref>
+      <driver-ref>6f79837c-08d8-4d6d-bf3e-7e4bb8b58698</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/petstore.db</jdbc-url>

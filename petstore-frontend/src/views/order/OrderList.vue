@@ -1,10 +1,51 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
+import { useUserStore } from '@/stores/user'
+import { get, post } from '@/api'
 
 const router = useRouter()
 const orderStore = useOrderStore()
+const user = useUserStore()
+
+// 从后端加载订单列表
+onMounted(async () => {
+  const userId = user.userInfo?.id
+  if (!userId) return
+  try {
+    const res = await get('/orders', { userId })
+    if (res.data.code === 200) {
+      const backendOrders = res.data.data || []
+      // 将后端订单合并到本地 store
+      backendOrders.forEach((bo) => {
+        const exists = orderStore.orders.find((o) => o.id === 'ORD' + bo.id)
+        if (!exists) {
+          orderStore.orders.unshift({
+            id: 'ORD' + bo.id,
+            orderNo: 'PET' + bo.id + '01',
+            status: bo.status,
+            items: (bo.items || []).map((oi) => ({
+              productId: oi.productId,
+              name: oi.productName || oi.name || '商品',
+              price: Number(oi.price) || 0,
+              quantity: oi.quantity || 1,
+              spec: '标准款',
+            })),
+            totalAmount: Number(bo.totalAmount) || 0,
+            shippingFee: 0,
+            payAmount: Number(bo.totalAmount) || 0,
+            createTime: bo.createdAt,
+            payTime: null,
+          })
+        }
+      })
+      orderStore._save()
+    }
+  } catch (e) {
+    console.error('加载订单失败', e)
+  }
+})
 
 const activeStatus = ref(null)
 
@@ -23,26 +64,52 @@ const statusClass = (status) => {
   return map[String(status)] || ''
 }
 
-const handlePay = (orderId) => {
-  orderStore.payOrder(orderId)
-  ElMessage.success('支付成功（Mock）')
+const handlePay = async (orderId) => {
+  try {
+    const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
+    const res = await post(`/orders/${realId}/pay`)
+    if (res.data.code === 200) {
+      orderStore.payOrder(orderId)
+      ElMessage.success('支付成功')
+    } else {
+      ElMessage.error(res.data.message || '支付失败')
+    }
+  } catch {
+    ElMessage.error('支付失败，请检查网络')
+  }
 }
 
 const handleCancel = (orderId) => {
   ElMessageBox.confirm('确定取消订单吗？', '提示', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
-  }).then(() => {
-    orderStore.cancelOrder(orderId)
-    ElMessage.success('订单已取消')
+  }).then(async () => {
+    try {
+      const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
+      const res = await post(`/orders/${realId}/cancel`, { reason: '用户取消' })
+      if (res.data.code === 200) {
+        orderStore.cancelOrder(orderId)
+        ElMessage.success('订单已取消')
+      } else {
+        ElMessage.error(res.data.message || '取消失败')
+      }
+    } catch { ElMessage.error('操作失败') }
   }).catch(() => {})
 }
 
 const handleConfirm = (orderId) => {
   ElMessageBox.confirm('确认已收到商品？', '确认收货', {
     confirmButtonText: '确认', cancelButtonText: '取消',
-  }).then(() => {
-    orderStore.confirmReceive(orderId)
-    ElMessage.success('已确认收货')
+  }).then(async () => {
+    try {
+      const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
+      const res = await post(`/orders/${realId}/confirm`)
+      if (res.data.code === 200) {
+        orderStore.confirmReceive(orderId)
+        ElMessage.success('已确认收货')
+      } else {
+        ElMessage.error(res.data.message || '操作失败')
+      }
+    } catch { ElMessage.error('操作失败') }
   }).catch(() => {})
 }
 

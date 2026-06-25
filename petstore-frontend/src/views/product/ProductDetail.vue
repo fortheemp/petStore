@@ -122,7 +122,13 @@ onMounted(fetchProduct)
           <!-- 左侧：图片画廊 -->
           <div class="product-gallery">
             <div class="product-gallery__main">
-              <div class="product-gallery__placeholder">
+              <img
+                v-if="product.images && product.images[activeImageIndex]"
+                :src="product.images[activeImageIndex]"
+                :alt="product.name"
+                class="product-gallery__img"
+              />
+              <div v-else class="product-gallery__placeholder">
                 <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -138,7 +144,12 @@ onMounted(fetchProduct)
                 :class="{ 'product-gallery__thumb--active': activeImageIndex === idx }"
                 @click="activeImageIndex = idx"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+                <img
+                  v-if="img"
+                  :src="img"
+                  class="product-gallery__thumb-img"
+                />
+                <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
@@ -362,6 +373,20 @@ onMounted(fetchProduct)
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.product-gallery__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-gallery__thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.8rem;
 }
 
 .product-gallery__placeholder {

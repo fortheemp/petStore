@@ -1,14 +1,22 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useOrderStore } from '@/stores/order'
 import { useAddressStore } from '@/stores/address'
+import { useUserStore } from '@/stores/user'
+import { post } from '@/api'
 
 const router = useRouter()
 const cart = useCartStore()
 const orderStore = useOrderStore()
 const addressStore = useAddressStore()
+const user = useUserStore()
+
+onMounted(() => {
+  const uid = user.userInfo?.id
+  if (uid) addressStore.fetchAll(uid)
+})
 
 const selectedItems = computed(() => cart.checkedItems)
 const totalAmount = computed(() => cart.subtotal)
@@ -22,27 +30,120 @@ const selectedAddress = computed(() => addresses.value.find((a) => a.id === sele
 
 const remark = ref('')
 const payMethod = ref('wechat')
+const submitting = ref(false)
 
-const submitOrder = () => {
+const submitOrder = async () => {
   if (selectedItems.value.length === 0) {
     ElMessage.warning('没有可结算的商品')
     return
   }
-  const orderData = {
-    items: selectedItems.value,
-    address: {
-      ...selectedAddress.value,
-      address: `${selectedAddress.value.province}${selectedAddress.value.city}${selectedAddress.value.district}${selectedAddress.value.detail}`,
-    },
-    remark: remark.value,
-    payMethod: payMethod.value,
-    totalAmount: totalAmount.value,
-    shippingFee: shippingFee.value,
+
+  const userId = user.userInfo?.id
+  if (!userId) {
+    ElMessage.error('请先登录')
+    return
   }
-  const order = orderStore.createOrder(orderData)
-  selectedItems.value.forEach((item) => cart.removeItem(item.id))
-  ElMessage.success('订单创建成功')
-  router.push('/user/orders')
+
+  submitting.value = true
+
+  try {
+    // Step 0: 确保有收货地址（没有则自动创建默认地址）
+    let addrId = selectedAddress.value?.id
+    if (!addrId) {
+      const addrData = {
+        userId: Number(userId),
+        receiverName: user.userInfo?.nickname || user.userInfo?.username || '用户',
+        phone: '13800000000',
+        province: '北京市',
+        city: '北京市',
+        district: '朝阳区',
+        detail: '默认地址（请在个人中心完善）',
+        isDefault: 1,
+      }
+      const addrRes = await post('/addresses', addrData)
+      if (addrRes.data.code === 200 && addrRes.data.data) {
+        addrId = addrRes.data.data.id
+        // 刷新地址列表
+        await addressStore.fetchAll(Number(userId))
+      } else {
+        ElMessage.error('自动创建地址失败：' + (addrRes.data.message || ''))
+        return
+      }
+    }
+
+    // Step 1: 将选购商品同步到后端购物车，获取后端 cartItemId
+    const cartItemIds = []
+    for (const item of selectedItems.value) {
+      const res = await post('/cart', {
+        userId: Number(userId),
+        productId: Number(item.productId),
+        quantity: item.quantity,
+      })
+      if (res.data.code === 200 && res.data.data) {
+        cartItemIds.push(res.data.data.id)
+      } else {
+        ElMessage.error(`同步商品「${item.name}」失败：${res.data.message || '未知错误'}`)
+        return
+      }
+    }
+
+    // Step 2: 调用后端创建订单（后端会自动扣库存）
+    const orderRes = await post(`/orders?userId=${userId}`, {
+      addressId: addrId,
+      cartItemIds: cartItemIds,
+    })
+
+    if (orderRes.data.code === 200) {
+      // 将后端返回的订单数据同步到本地 orderStore，以便 OrderList 可以显示
+      const backendOrder = orderRes.data.data
+      const localOrder = {
+        id: 'ORD' + backendOrder.id,
+        orderNo: 'PET' + backendOrder.id + String(Date.now()).slice(-4),
+        status: backendOrder.status,
+        items: selectedItems.value.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          image: item.image,
+          price: item.price,
+          quantity: item.quantity,
+          spec: item.spec ? item.spec.value : '标准款',
+        })),
+        address: selectedAddress.value
+          ? {
+              name: selectedAddress.value.receiverName || selectedAddress.value.name,
+              phone: selectedAddress.value.phone,
+              province: selectedAddress.value.province,
+              city: selectedAddress.value.city,
+              district: selectedAddress.value.district,
+              detail: selectedAddress.value.detail,
+            }
+          : {},
+        totalAmount: totalAmount.value,
+        shippingFee: shippingFee.value,
+        payAmount: payAmount.value,
+        payMethod: payMethod.value,
+        remark: remark.value,
+        createTime: new Date().toISOString(),
+        payTime: null,
+        shipTime: null,
+        receiveTime: null,
+      }
+      orderStore.orders.unshift(localOrder)
+      orderStore._save()
+
+      // 清除本地购物车中已购买的商品
+      selectedItems.value.forEach((item) => cart.removeItem(item.id))
+      ElMessage.success('订单创建成功，库存已自动扣减')
+      setTimeout(() => router.push('/user/orders'), 300)
+    } else {
+      ElMessage.error(orderRes.data.message || '订单创建失败')
+    }
+  } catch (e) {
+    console.error('提交订单失败:', e)
+    ElMessage.error('订单提交失败，请检查后端服务是否运行')
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -75,7 +176,7 @@ const submitOrder = () => {
               />
               <div class="address-card__info">
                 <div class="address-card__head">
-                  <span class="address-card__name">{{ addr.name }}</span>
+                  <span class="address-card__name">{{ addr.receiverName || addr.name }}</span>
                   <span class="address-card__phone">{{ addr.phone }}</span>
                   <span v-if="addr.isDefault" class="address-card__tag">默认</span>
                 </div>
@@ -159,8 +260,8 @@ const submitOrder = () => {
             <span>实付金额</span>
             <span class="checkout-summary__amount">¥{{ payAmount.toFixed(2) }}</span>
           </div>
-          <button class="checkout-summary__btn" @click="submitOrder">
-            提交订单
+          <button class="checkout-summary__btn" @click="submitOrder" :disabled="submitting">
+            {{ submitting ? '提交中...' : '提交订单' }}
           </button>
         </div>
       </template>

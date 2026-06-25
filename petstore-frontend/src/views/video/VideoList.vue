@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getVideoList, formatCount } from '@/api/video'
+import { get as apiGet } from '@/api'
 import { ElMessage } from 'element-plus'
 import { useCartStore } from '@/stores/cart'
 import { useRouter } from 'vue-router'
@@ -9,6 +10,7 @@ const router = useRouter()
 const cartStore = useCartStore()
 
 const videos = ref([])
+const products = ref([])
 const loading = ref(true)
 const activeCategory = ref('all')
 
@@ -23,10 +25,41 @@ const categories = [
 const fetchVideos = async () => {
   loading.value = true
   try {
-    videos.value = await getVideoList(activeCategory.value)
+    const res = await getVideoList()
+    if (res && res.data && res.data.code === 200) {
+      videos.value = res.data.data || []
+    } else {
+      videos.value = []
+    }
+  } catch (e) {
+    console.error('获取视频列表失败:', e)
+    videos.value = []
   } finally {
     loading.value = false
   }
+}
+
+// 加载所有商品，用于根据 productId 查找商品信息
+const fetchProducts = async () => {
+  try {
+    const res = await apiGet('/products', { page: 1, size: 200 })
+    if (res.data && res.data.code === 200) {
+      products.value = res.data.data || []
+    }
+  } catch (e) {
+    console.error('获取商品列表失败:', e)
+  }
+}
+
+const getProductName = (productId) => {
+  if (!productId) return ''
+  const p = products.value.find((p) => p.id === productId)
+  return p ? p.name : ''
+}
+
+const getProduct = (productId) => {
+  if (!productId) return null
+  return products.value.find((p) => p.id === productId) || null
 }
 
 const handleCategoryChange = (cat) => {
@@ -34,7 +67,7 @@ const handleCategoryChange = (cat) => {
   fetchVideos()
 }
 
-// Player
+// ===== 播放器 =====
 const showPlayer = ref(false)
 const currentVideo = ref(null)
 const videoRef = ref(null)
@@ -44,8 +77,8 @@ const totalTime = ref(0)
 
 const handlePlayVideo = (video) => {
   currentVideo.value = video
-  totalTime.value = video.durationSeconds
   currentTime.value = 0
+  totalTime.value = 0
   isPlaying.value = false
   showPlayer.value = true
 }
@@ -58,6 +91,7 @@ const handleClosePlayer = () => {
   currentVideo.value = null
   isPlaying.value = false
   currentTime.value = 0
+  totalTime.value = 0
 }
 
 const togglePlay = () => {
@@ -76,23 +110,32 @@ const onTimeUpdate = () => {
   }
 }
 
+const onLoadedMetadata = () => {
+  if (videoRef.value) {
+    totalTime.value = Math.floor(videoRef.value.duration)
+  }
+}
+
+const onVideoEnded = () => {
+  isPlaying.value = false
+}
+
 const formatTime = (seconds) => {
+  if (!seconds || isNaN(seconds)) return '00:00'
   const m = Math.floor(seconds / 60)
-  const s = seconds % 60
+  const s = Math.floor(seconds % 60)
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-const progressPercent = ref(0)
 const seekVideo = (e) => {
   const rect = e.currentTarget.getBoundingClientRect()
   const pct = (e.clientX - rect.left) / rect.width
-  progressPercent.value = Math.max(0, Math.min(100, pct * 100))
-  if (videoRef.value) {
+  if (videoRef.value && totalTime.value) {
     videoRef.value.currentTime = pct * totalTime.value
   }
 }
 
-// Related product
+// Related product actions
 const handleAddToCart = (product) => {
   cartStore.addToCart(
     { id: product.id, name: product.name, price: product.price, originalPrice: product.price, stock: 50 },
@@ -107,11 +150,16 @@ const handleViewProduct = (productId) => {
   router.push(`/products/${productId}`)
 }
 
-// Mock video cover color
-const coverColors = ['#3b5998', '#e74c3c', '#27ae60', '#f39c12']
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 
 onMounted(() => {
   fetchVideos()
+  fetchProducts()
 })
 </script>
 
@@ -146,29 +194,37 @@ onMounted(() => {
       <!-- Video Grid -->
       <div v-else class="video-list-page__grid">
         <div
-          v-for="(video, idx) in videos"
+          v-for="video in videos"
           :key="video.id"
           class="video-card"
           @click="handlePlayVideo(video)"
         >
-          <div class="video-card__cover" :style="{ background: coverColors[idx % coverColors.length] }">
+          <div class="video-card__cover">
+            <video
+              v-if="video.url"
+              :src="video.url"
+              preload="metadata"
+              class="video-card__thumb"
+              muted
+            ></video>
+            <div v-else class="video-card__cover-placeholder">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" opacity="0.7"/>
+              </svg>
+            </div>
             <div class="video-card__cover-overlay">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" opacity="0.7"/>
               </svg>
             </div>
-            <div class="video-card__duration">{{ video.duration }}</div>
           </div>
           <div class="video-card__info">
             <h3 class="video-card__title">{{ video.title }}</h3>
             <div class="video-card__meta">
-              <span class="video-card__views">观看 {{ formatCount(video.viewCount) }}次</span>
-              <span class="video-card__author">{{ video.author }}</span>
-            </div>
-            <div v-if="video.relatedProduct" class="video-card__related">
-              <span class="label">相关商品：</span>
-              <span class="product-name">{{ video.relatedProduct.name }}</span>
-              <span class="product-price">¥{{ video.relatedProduct.price }}</span>
+              <span v-if="getProductName(video.productId)" class="video-card__product">
+                关联商品：{{ getProductName(video.productId) }}
+              </span>
+              <span v-else class="video-card__product">无关联商品</span>
             </div>
           </div>
         </div>
@@ -176,29 +232,52 @@ onMounted(() => {
     </div>
 
     <!-- Video Player Modal -->
-    <div v-if="showPlayer" class="video-player">
+    <div v-if="showPlayer" class="video-player" @keydown.escape="handleClosePlayer">
       <div class="video-player__overlay" @click="handleClosePlayer"></div>
       <div class="video-player__modal">
         <div class="video-player__header">
           <span class="video-player__title">{{ currentVideo?.title }}</span>
-          <button class="video-player__close" @click="handleClosePlayer">X</button>
+          <button class="video-player__close" @click="handleClosePlayer">✕</button>
         </div>
 
         <div class="video-player__content">
-          <div class="video-player__mock-screen" @click="togglePlay">
-            <svg v-if="!isPlaying" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-              <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.3)" stroke="white"/>
-              <polygon points="10 8 16 12 10 16" fill="white" stroke="none"/>
+          <!-- 真实 video 元素 -->
+          <video
+            v-if="currentVideo?.url"
+            ref="videoRef"
+            :src="currentVideo.url"
+            class="video-player__video"
+            @timeupdate="onTimeUpdate"
+            @loadedmetadata="onLoadedMetadata"
+            @ended="onVideoEnded"
+            @play="isPlaying = true"
+            @pause="isPlaying = false"
+            controlsList="nodownload"
+            playsinline
+          ></video>
+          <div v-else class="video-player__no-video">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8"/><line x1="12" y1="17" x2="12" y2="21"/>
+              <circle cx="12" cy="10" r="3"/>
             </svg>
-            <div v-else class="video-player__pause-hint">点击暂停</div>
+            <p>暂无视频资源</p>
           </div>
+
           <div class="video-player__controls">
             <button class="play-btn" @click.stop="togglePlay">
-              <svg v-if="!isPlaying" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              <svg v-if="!isPlaying" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+              </svg>
             </button>
             <div class="progress-bar" @click="seekVideo">
-              <div class="progress-bar__fill" :style="{ width: (totalTime ? (currentTime / totalTime) * 100 : 0) + '%' }"></div>
+              <div
+                class="progress-bar__fill"
+                :style="{ width: (totalTime ? (currentTime / totalTime) * 100 : 0) + '%' }"
+              ></div>
             </div>
             <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(totalTime) }}</span>
           </div>
@@ -206,28 +285,28 @@ onMounted(() => {
 
         <div class="video-player__info">
           <div class="video-player__meta">
-            <span>观看 {{ formatCount(currentVideo?.viewCount) }}次</span>
-            <span>发布于 {{ currentVideo?.createTime }}</span>
-          </div>
-          <p class="video-player__desc">{{ currentVideo?.description }}</p>
-          <div class="video-player__tags">
-            <span v-for="tag in currentVideo?.tags" :key="tag" class="tag">#{{ tag }}</span>
+            <span>发布于 {{ formatDate(currentVideo?.createdAt) }}</span>
           </div>
         </div>
 
-        <div v-if="currentVideo?.relatedProduct" class="video-player__related">
+        <!-- 关联商品 -->
+        <div v-if="currentVideo?.productId && getProduct(currentVideo.productId)" class="video-player__related">
           <h4>相关商品</h4>
           <div class="related-product">
             <div class="related-product__placeholder">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+              </svg>
             </div>
             <div class="related-product__info">
-              <span class="related-product__name">{{ currentVideo.relatedProduct.name }}</span>
-              <span class="related-product__price">¥{{ currentVideo.relatedProduct.price }}</span>
+              <span class="related-product__name">{{ getProduct(currentVideo.productId).name }}</span>
+              <span class="related-product__price">¥{{ getProduct(currentVideo.productId).price }}</span>
             </div>
             <div class="related-product__actions">
-              <button class="btn-view" @click="handleViewProduct(currentVideo.relatedProduct.id)">查看详情</button>
-              <button class="btn-add" @click="handleAddToCart(currentVideo.relatedProduct)">加入购物车</button>
+              <button class="btn-view" @click="handleViewProduct(currentVideo.productId)">查看详情</button>
+              <button class="btn-add" @click="handleAddToCart(getProduct(currentVideo.productId))">加入购物车</button>
             </div>
           </div>
         </div>
@@ -316,10 +395,25 @@ onMounted(() => {
 .video-card__cover {
   position: relative;
   aspect-ratio: 16 / 9;
+  background: #1a1a2e;
+  overflow: hidden;
+}
+
+.video-card__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.video-card__cover-placeholder {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.5);
+  background: #1a1a2e;
 }
 
 .video-card__cover-overlay {
@@ -330,21 +424,11 @@ onMounted(() => {
   justify-content: center;
   background: rgba(0, 0, 0, 0.2);
   transition: background 0.3s;
+  color: #fff;
 }
 
 .video-card:hover .video-card__cover-overlay {
   background: rgba(0, 0, 0, 0.35);
-}
-
-.video-card__duration {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
 }
 
 .video-card__info {
@@ -369,27 +453,11 @@ onMounted(() => {
   align-items: center;
   font-size: 13px;
   color: #999;
-  margin-bottom: 12px;
 }
 
-.video-card__related {
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+.video-card__product {
   font-size: 12px;
-}
-
-.video-card__related .label {
-  color: #999;
-}
-
-.video-card__related .product-name {
-  color: #333;
-  margin-right: 6px;
-}
-
-.video-card__related .product-price {
-  color: #bd2848;
-  font-weight: 600;
+  color: #888;
 }
 
 /* Video Player Modal */
@@ -458,21 +526,29 @@ onMounted(() => {
   background: #000;
 }
 
-.video-player__mock-screen {
+.video-player__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 480px;
+  display: block;
+  background: #000;
+}
+
+.video-player__no-video {
   width: 100%;
   aspect-ratio: 16 / 9;
   max-height: 480px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #999;
+  background: #1a1a2e;
+  gap: 12px;
 }
 
-.video-player__pause-hint {
+.video-player__no-video p {
   font-size: 14px;
-  opacity: 0.6;
 }
 
 .video-player__controls {
@@ -529,27 +605,6 @@ onMounted(() => {
   font-size: 13px;
   color: #999;
   margin-bottom: 12px;
-}
-
-.video-player__desc {
-  font-size: 14px;
-  color: #333;
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-
-.video-player__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag {
-  padding: 4px 12px;
-  background: #f8f9fa;
-  border-radius: 16px;
-  font-size: 13px;
-  color: #1c49c2;
 }
 
 .video-player__related {

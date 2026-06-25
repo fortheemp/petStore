@@ -7,6 +7,9 @@ import {
 } from '@/api/product'
 import { getShopById } from '@/api/shop'
 import ProductCard from '@/components/common/ProductCard.vue'
+import { useCartStore } from '@/stores/cart'
+
+const cartStore = useCartStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -155,6 +158,13 @@ const updateQuery = () => {
 
 // 加入购物车
 const handleAddToCart = (id) => {
+  const product = products.value.find((p) => p.id === id)
+  if (!product) {
+    ElMessage.error('商品不存在')
+    return
+  }
+  const spec = { id: 1, name: '标准款' }
+  cartStore.addToCart(product, 1, spec)
   ElMessage.success('已加入购物车')
 }
 

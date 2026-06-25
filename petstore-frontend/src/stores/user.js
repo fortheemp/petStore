@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { post, get } from '@/api'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref('')
@@ -18,41 +19,39 @@ export const useUserStore = defineStore('user', () => {
   const isAdmin = computed(() => userInfo.value?.role === 'admin')
   const displayName = computed(() => userInfo.value?.nickname || userInfo.value?.username || '')
 
-  const login = (loginData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (loginData.username && loginData.password) {
-          const mockToken = 'mock_token_' + Date.now()
-          const mockUser = {
-            id: loginData.username === 'admin' ? 1 : 1001,
-            username: loginData.username,
-            nickname: loginData.username === 'admin' ? '管理员' : '宠物达人',
-            phone: '138****8888',
-            role: loginData.username === 'admin' ? 'admin' : 'user',
-          }
-          token.value = mockToken
-          userInfo.value = mockUser
-          localStorage.setItem('petstore_token', mockToken)
-          localStorage.setItem('petstore_user', JSON.stringify(mockUser))
-          if (loginData.remember) {
-            localStorage.setItem('petstore_rememberedUser', loginData.username)
-          } else {
-            localStorage.removeItem('petstore_rememberedUser')
-          }
-          resolve({ success: true, message: '登录成功' })
-        } else {
-          resolve({ success: false, message: '用户名或密码错误' })
-        }
-      }, 500)
+  /** 登录 — 调用真实后端 API */
+  const login = async (loginData) => {
+    const res = await post('/user/login', {
+      username: loginData.username,
+      password: loginData.password,
     })
+    if (res.data.code === 200 && res.data.data) {
+      const user = res.data.data
+      userInfo.value = user
+      token.value = 'session_' + user.id
+      localStorage.setItem('petstore_token', token.value)
+      localStorage.setItem('petstore_user', JSON.stringify(user))
+      if (loginData.remember) {
+        localStorage.setItem('petstore_rememberedUser', loginData.username)
+      } else {
+        localStorage.removeItem('petstore_rememberedUser')
+      }
+      return { success: true, message: '登录成功' }
+    }
+    return { success: false, message: res.data.message || '用户名或密码错误' }
   }
 
-  const register = (registerData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true, message: '注册成功' })
-      }, 500)
+  /** 注册 — 调用真实后端 API */
+  const register = async (registerData) => {
+    const res = await post('/user/register', {
+      username: registerData.username,
+      password: registerData.password,
+      nickname: registerData.nickname || registerData.username,
     })
+    if (res.data.code === 200) {
+      return { success: true, message: '注册成功，请登录' }
+    }
+    return { success: false, message: res.data.message || '注册失败' }
   }
 
   const logout = () => {
@@ -60,6 +59,18 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = null
     localStorage.removeItem('petstore_token')
     localStorage.removeItem('petstore_user')
+  }
+
+  /** 刷新用户信息（从后端获取最新数据） */
+  const refreshUserInfo = async () => {
+    if (!userInfo.value?.id) return
+    try {
+      const res = await get(`/user/profile/${userInfo.value.id}`)
+      if (res.data.code === 200) {
+        userInfo.value = res.data.data
+        localStorage.setItem('petstore_user', JSON.stringify(userInfo.value))
+      }
+    } catch { /* 忽略刷新失败 */ }
   }
 
   const updateUserInfo = (data) => {
@@ -71,6 +82,6 @@ export const useUserStore = defineStore('user', () => {
 
   return {
     token, userInfo, isLoggedIn, isAdmin, displayName,
-    login, register, logout, updateUserInfo,
+    login, register, logout, refreshUserInfo, updateUserInfo,
   }
 })
