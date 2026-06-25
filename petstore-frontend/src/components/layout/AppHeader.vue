@@ -36,7 +36,6 @@ const handleLogout = () => {
 
 <template>
   <header class="header">
-    <!-- 主导航栏 -->
     <div class="header__main">
       <div class="container header__main-inner">
         <!-- Logo -->
@@ -53,12 +52,33 @@ const handleLogout = () => {
           <span class="header__logo-text">PetStore</span>
         </router-link>
 
-        <!-- 搜索栏 -->
+        <!-- 分类标签（合并到第一行） -->
+        <div class="header__nav-tags">
+          <button
+            v-for="cat in mainCategories"
+            :key="cat.key"
+            class="header__nav-tag"
+            @click="currentType = cat.key; router.push({ path: '/products', query: cat.query })"
+          >
+            {{ cat.label }}
+          </button>
+          <span class="header__nav-divider"></span>
+          <router-link
+            v-for="link in navLinks"
+            :key="link.to"
+            :to="link.to"
+            class="header__nav-tag header__nav-tag--link"
+          >
+            {{ link.label }}
+          </router-link>
+        </div>
+
+        <!-- 搜索栏（缩小，靠右） -->
         <div class="header__search">
           <el-input
             v-model="searchQuery"
-            placeholder="搜索宠物食品、玩具、用品..."
-            size="large"
+            placeholder="搜索商品..."
+            size="default"
             @keyup.enter="handleSearch"
           >
             <template #append>
@@ -120,30 +140,6 @@ const handleLogout = () => {
         </div>
       </div>
     </div>
-
-    <!-- 分类导航栏 -->
-    <nav class="header__nav">
-      <div class="container header__nav-inner">
-        <button
-          v-for="cat in mainCategories"
-          :key="cat.key"
-          class="header__nav-item"
-          :class="{ 'header__nav-item--active': currentType === cat.key }"
-          @click="currentType = cat.key; router.push({ path: '/products', query: cat.query })"
-        >
-          <span>{{ cat.label }}</span>
-        </button>
-        <span class="header__nav-divider"></span>
-        <router-link
-          v-for="link in navLinks"
-          :key="link.to"
-          :to="link.to"
-          class="header__nav-item header__nav-item--link"
-        >
-          <span>{{ link.label }}</span>
-        </router-link>
-      </div>
-    </nav>
   </header>
 </template>
 
@@ -160,7 +156,7 @@ const handleLogout = () => {
 /* ========== 主导航栏 ========== */
 .header__main {
   background-color: var(--color-brand-blue);
-  height: 7.2rem;
+  height: 6rem;
   display: flex;
   align-items: center;
 }
@@ -168,8 +164,8 @@ const handleLogout = () => {
 .header__main-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
+  gap: var(--spacing-4);
 }
 
 /* Logo */
@@ -194,10 +190,53 @@ const handleLogout = () => {
   letter-spacing: -0.02em;
 }
 
-/* 搜索栏 */
+/* 分类标签（第一行） */
+.header__nav-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-shrink: 0;
+}
+
+.header__nav-tag {
+  padding: 0.5rem 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.header__nav-tag:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.header__nav-tag--link {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.header__nav-tag--link:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.header__nav-divider {
+  width: 1px;
+  height: 1.6rem;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 0 var(--spacing-1);
+  flex-shrink: 0;
+}
+
+/* 搜索栏（缩小，靠右） */
 .header__search {
   flex: 1;
-  max-width: 60rem;
+  max-width: 42rem;
+  margin-left: auto;
 }
 
 .header__search :deep(.el-input__wrapper) {
@@ -308,58 +347,6 @@ const handleLogout = () => {
   color: #bd2848;
 }
 
-/* ========== 分类导航栏 ========== */
-.header__nav {
-  background-color: var(--color-brand-blue);
-  box-shadow: var(--shadow-sm);
-}
-
-.header__nav-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-6);
-  height: 4.8rem;
-}
-
-.header__nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-4);
-  color: var(--color-text-inverse);
-  font-size: var(--text-body-sm);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  border-radius: var(--radius-md);
-  white-space: nowrap;
-  transition: background-color var(--transition-fast);
-}
-
-.header__nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-  color: var(--color-text-inverse);
-}
-
-.header__nav-item--active {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.header__nav-divider {
-  width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 var(--spacing-2);
-}
-
-.header__nav-item--link {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.header__nav-item--link:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
   .header__main-inner {
@@ -370,13 +357,12 @@ const handleLogout = () => {
     display: none;
   }
 
-  .header__action-label {
+  .header__nav-tags {
     display: none;
   }
 
-  .header__nav-item {
-    padding: var(--spacing-2) var(--spacing-3);
-    font-size: var(--text-caption);
+  .header__action-label {
+    display: none;
   }
 }
 </style>
