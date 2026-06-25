@@ -1,10 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
 
 const router = useRouter()
 const orderStore = useOrderStore()
+
+onMounted(() => {
+  orderStore.loadOrders()
+})
 
 const activeStatus = ref(null)
 

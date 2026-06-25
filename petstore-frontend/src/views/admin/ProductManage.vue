@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAdminStore } from '@/stores/admin'
+import { createAdminProduct, updateAdminProduct } from '@/api/admin'
 
 const admin = useAdminStore()
 
@@ -73,14 +74,19 @@ const handleSave = async () => {
   if (!formRef.value) return
   try { await formRef.value.validate() } catch { return }
 
-  if (isEditing.value) {
-    admin.updateProduct(editingId.value, { ...form.value })
-    ElMessage.success('修改成功')
-  } else {
-    admin.addProduct({ ...form.value })
-    ElMessage.success('添加成功')
+  try {
+    if (isEditing.value) {
+      await updateAdminProduct(editingId.value, { ...form.value })
+      ElMessage.success('修改成功')
+    } else {
+      await createAdminProduct({ ...form.value })
+      ElMessage.success('添加成功')
+    }
+    admin.loadProducts()
+    dialogVisible.value = false
+  } catch {
+    ElMessage.error('操作失败')
   }
-  dialogVisible.value = false
 }
 
 const handleDelete = (product) => {
@@ -92,11 +98,6 @@ const handleDelete = (product) => {
     admin.deleteProduct(product.id)
     ElMessage.success('已删除')
   }).catch(() => {})
-}
-
-const handleToggleStatus = (product) => {
-  admin.toggleProductStatus(product.id)
-  ElMessage.success(product.status === '上架' ? '已下架' : '已上架')
 }
 </script>
 
@@ -146,14 +147,9 @@ const handleToggleStatus = (product) => {
             <span class="tag" :class="row.status === '上架' ? 'tag--success' : 'tag--muted'">{{ row.status }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <button class="action-btn action-btn--primary" @click="openEdit(row)">编辑</button>
-            <button
-              class="action-btn"
-              :class="row.status === '上架' ? 'action-btn--warning' : 'action-btn--success'"
-              @click="handleToggleStatus(row)"
-            >{{ row.status === '上架' ? '下架' : '上架' }}</button>
             <button class="action-btn action-btn--danger" @click="handleDelete(row)">删除</button>
           </template>
         </el-table-column>

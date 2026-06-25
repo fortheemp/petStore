@@ -23,26 +23,26 @@ const selectedAddress = computed(() => addresses.value.find((a) => a.id === sele
 const remark = ref('')
 const payMethod = ref('wechat')
 
-const submitOrder = () => {
+const submitOrder = async () => {
   if (selectedItems.value.length === 0) {
     ElMessage.warning('没有可结算的商品')
     return
   }
-  const orderData = {
-    items: selectedItems.value,
-    address: {
-      ...selectedAddress.value,
-      address: `${selectedAddress.value.province}${selectedAddress.value.city}${selectedAddress.value.district}${selectedAddress.value.detail}`,
-    },
-    remark: remark.value,
-    payMethod: payMethod.value,
-    totalAmount: totalAmount.value,
-    shippingFee: shippingFee.value,
+  if (!selectedAddressId.value) {
+    ElMessage.warning('请选择收货地址')
+    return
   }
-  const order = orderStore.createOrder(orderData)
-  selectedItems.value.forEach((item) => cart.removeItem(item.id))
-  ElMessage.success('订单创建成功')
-  router.push('/user/orders')
+  const cartItemIds = selectedItems.value.map((item) => item.id)
+  const result = await orderStore.createOrder({
+    addressId: selectedAddressId.value,
+    cartItemIds,
+  })
+  if (result) {
+    ElMessage.success('订单创建成功')
+    router.push('/user/orders')
+  } else {
+    ElMessage.error('订单创建失败')
+  }
 }
 </script>
 

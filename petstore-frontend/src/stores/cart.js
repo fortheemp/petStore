@@ -1,151 +1,136 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getCartList, addToCart as apiAddToCart, updateCartItem as apiUpdateCartItem, removeCartItem as apiRemoveCartItem, clearCart as apiClearCart } from '@/api/cart'
+import { useUserStore } from './user'
 
-/**
- * 购物车 Store
- * 使用 localStorage 持久化，刷新不丢失
- */
+const PRODUCT_CACHE_KEY = 'petstore_cart_products'
+
+function loadProductCache() {
+  try { return JSON.parse(localStorage.getItem(PRODUCT_CACHE_KEY) || '{}') } catch { return {} }
+}
+
+function saveProductCache(cache) {
+  localStorage.setItem(PRODUCT_CACHE_KEY, JSON.stringify(cache))
+}
+
 export const useCartStore = defineStore('cart', () => {
-  // ========== State ==========
   const items = ref([])
 
-  // 初始化：从 localStorage 读取
-  const init = () => {
-    const saved = localStorage.getItem('petstore_cart')
-    if (saved) {
+  const totalItems = computed(() => items.value.reduce((sum, item) => sum + item.quantity, 0))
+  const checkedItems = computed(() => items.value.filter((item) => item.checked))
+  const checkedCount = computed(() => checkedItems.value.length)
+  const subtotal = computed(() => checkedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
+  const shipping = computed(() => (subtotal.value >= 199 ? 0 : 10))
+  const total = computed(() => subtotal.value + shipping.value)
+  const isAllChecked = computed(() => items.value.length > 0 && items.value.every((item) => item.checked))
+
+  function getUserId() {
+    const userStore = useUserStore()
+    return userStore.userInfo?.id
+  }
+
+  async function loadCart() {
+    const userId = getUserId()
+    if (!userId) { items.value = []; return }
+    try {
+      const res = await getCartList(userId)
+      const list = Array.isArray(res) ? res : []
+      const cache = loadProductCache()
+      items.value = list.map((item) => {
+        const p = cache[item.productId] || {}
+        return {
+          id: item.id,
+          backendId: item.id,
+          productId: item.productId,
+          name: p.name || `商品#${item.productId}`,
+          image: p.image || '',
+          price: Number(p.price) || 0,
+          quantity: item.quantity,
+          stock: p.stock || 99,
+          checked: true,
+        }
+      })
+    } catch { items.value = [] }
+  }
+
+  async function addToCart(product, quantity = 1, spec = null) {
+    const userId = getUserId()
+    if (!userId) return
+
+    const cache = loadProductCache()
+    cache[product.id] = { name: product.name, image: product.image, price: product.price, stock: product.stock || 50 }
+    saveProductCache(cache)
+
+    const existing = items.value.find((item) => item.productId === product.id)
+    if (existing) {
+      const newQty = Math.min(existing.quantity + quantity, existing.stock)
+      existing.quantity = newQty
+      if (existing.backendId) {
+        try { await apiUpdateCartItem(existing.backendId, { quantity: newQty }) } catch {}
+      }
+    } else {
       try {
-        items.value = JSON.parse(saved)
-      } catch {
-        items.value = []
+        const res = await apiAddToCart({ userId, productId: product.id, quantity })
+        const backendId = res?.id
+        items.value.push({
+          id: backendId || `local-${product.id}`,
+          backendId,
+          productId: product.id,
+          name: product.name,
+          image: product.image || '',
+          price: product.price,
+          quantity,
+          stock: product.stock || 50,
+          checked: true,
+        })
+      } catch {}
+    }
+  }
+
+  async function updateQuantity(itemId, quantity) {
+    const item = items.value.find((i) => i.id === itemId)
+    if (item) {
+      item.quantity = Math.max(1, Math.min(quantity, item.stock))
+      if (item.backendId) {
+        try { await apiUpdateCartItem(item.backendId, { quantity: item.quantity }) } catch {}
       }
     }
   }
 
-  // ========== Getters ==========
-
-  /** 购物车商品总数量 */
-  const totalItems = computed(() =>
-    items.value.reduce((sum, item) => sum + item.quantity, 0),
-  )
-
-  /** 已勾选的商品 */
-  const checkedItems = computed(() =>
-    items.value.filter((item) => item.checked),
-  )
-
-  /** 已勾选商品数量 */
-  const checkedCount = computed(() => checkedItems.value.length)
-
-  /** 已勾选商品小计之和 */
-  const subtotal = computed(() =>
-    checkedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0),
-  )
-
-  /** 运费：满 199 免运费，否则 10 元 */
-  const shipping = computed(() => (subtotal.value >= 199 ? 0 : 10))
-
-  /** 合计金额 */
-  const total = computed(() => subtotal.value + shipping.value)
-
-  /** 是否全选 */
-  const isAllChecked = computed(() =>
-    items.value.length > 0 && items.value.every((item) => item.checked),
-  )
-
-  // ========== Actions ==========
-
-  /** 添加商品到购物车 */
-  const addToCart = (product, quantity, spec) => {
-    const itemId = `${product.id}-${spec.id}`
-    const existing = items.value.find((item) => item.id === itemId)
-
-    if (existing) {
-      existing.quantity = Math.min(existing.quantity + quantity, existing.stock)
-    } else {
-      items.value.push({
-        id: itemId,
-        productId: product.id,
-        name: product.name,
-        image: '',
-        price: product.price,
-        originalPrice: product.originalPrice,
-        spec: {
-          id: spec.id,
-          name: '规格',
-          value: spec.name,
-        },
-        quantity,
-        stock: product.stock || 50,
-        checked: true,
-      })
-    }
-    save()
-  }
-
-  /** 更新商品数量 */
-  const updateQuantity = (itemId, quantity) => {
+  function toggleChecked(itemId) {
     const item = items.value.find((i) => i.id === itemId)
-    if (item) {
-      item.quantity = Math.max(1, Math.min(quantity, item.stock))
-      save()
-    }
+    if (item) item.checked = !item.checked
   }
 
-  /** 切换单个商品勾选状态 */
-  const toggleChecked = (itemId) => {
-    const item = items.value.find((i) => i.id === itemId)
-    if (item) {
-      item.checked = !item.checked
-      save()
-    }
-  }
-
-  /** 全选/取消全选 */
-  const toggleAllChecked = () => {
+  function toggleAllChecked() {
     const newState = !isAllChecked.value
-    items.value.forEach((item) => {
-      item.checked = newState
-    })
-    save()
+    items.value.forEach((item) => { item.checked = newState })
   }
 
-  /** 删除单个商品 */
-  const removeItem = (itemId) => {
-    const index = items.value.findIndex((i) => i.id === itemId)
-    if (index >= 0) {
-      items.value.splice(index, 1)
-      save()
+  async function removeItem(itemId) {
+    const item = items.value.find((i) => i.id === itemId)
+    if (item?.backendId) {
+      try { await apiRemoveCartItem(item.backendId) } catch {}
     }
+    items.value = items.value.filter((i) => i.id !== itemId)
   }
 
-  /** 清空购物车 */
-  const clearCart = () => {
+  async function clearAllCart() {
+    const userId = getUserId()
+    if (userId) {
+      try { await apiClearCart(userId) } catch {}
+    }
     items.value = []
-    save()
   }
 
-  /** 持久化到 localStorage */
-  const save = () => {
-    localStorage.setItem('petstore_cart', JSON.stringify(items.value))
+  async function init() {
+    await loadCart()
   }
 
-  // 初始化
   init()
 
   return {
-    items,
-    totalItems,
-    checkedItems,
-    checkedCount,
-    subtotal,
-    shipping,
-    total,
-    isAllChecked,
-    addToCart,
-    updateQuantity,
-    toggleChecked,
-    toggleAllChecked,
-    removeItem,
-    clearCart,
+    items, totalItems, checkedItems, checkedCount, subtotal, shipping, total, isAllChecked,
+    addToCart, updateQuantity, toggleChecked, toggleAllChecked, removeItem, clearCart: clearAllCart, loadCart,
   }
 })

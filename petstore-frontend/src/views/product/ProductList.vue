@@ -63,6 +63,7 @@ const pageSize = ref(12)
 const currentSort = ref('default')
 const categoryCounts = ref({})
 const currentShopId = computed(() => route.query.shopId || '')
+const shopName = ref('')
 const currentProductType = computed(() => route.query.productType || '')
 const currentCategory = computed(() => route.query.category || '')
 const currentKeyword = computed(() => route.query.keyword || '')
@@ -126,8 +127,7 @@ const pageTitle = computed(() => {
     return `搜索"${currentKeyword.value}"`
   }
   if (currentShopId.value) {
-    const shop = getShopById(currentShopId.value)
-    return shop ? shop.name : '商店商品'
+    return shopName.value || '商店商品'
   }
   if (currentProductType.value && productTypeMap[currentProductType.value]) {
     const typeLabel = productTypeMap[currentProductType.value].label
@@ -143,6 +143,11 @@ const pageTitle = computed(() => {
 const fetchProducts = async () => {
   loading.value = true
   try {
+    if (currentShopId.value) {
+      getShopById(currentShopId.value).then((res) => { shopName.value = res?.name || '' })
+    } else {
+      shopName.value = ''
+    }
     const data = await getProducts({
       page: currentPage.value,
       pageSize: pageSize.value,
@@ -258,8 +263,8 @@ watch(
   },
 )
 
-onMounted(() => {
-  categoryCounts.value = getCategoryCounts()
+onMounted(async () => {
+  categoryCounts.value = await getCategoryCounts()
   fetchProducts()
 })
 </script>

@@ -32,7 +32,8 @@ const discount = (() => {
   <router-link :to="`/products/${id}`" class="product-card">
     <!-- 商品图片 -->
     <div class="product-card__image-wrapper">
-      <div class="product-card__image-placeholder">
+      <img v-if="image" :src="image" :alt="name" class="product-card__image" />
+      <div v-else class="product-card__image-placeholder">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
           <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -116,6 +117,13 @@ const discount = (() => {
   justify-content: center;
   border-radius: 0.8rem;
   background-color: #ffffff;
+}
+
+.product-card__image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 0.8rem;
 }
 
 .product-card__badge {

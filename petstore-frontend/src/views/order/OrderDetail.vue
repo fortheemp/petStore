@@ -8,7 +8,16 @@ const route = useRoute()
 const router = useRouter()
 const orderStore = useOrderStore()
 
-const order = computed(() => orderStore.getOrderById(route.params.id))
+const order = ref(null)
+
+onMounted(async () => {
+  const id = route.params.id
+  order.value = await orderStore.getOrderDetailById(id)
+  if (route.query.review === '1' && order.value?.status === 3 && !order.value?.reviewed) {
+    initReviewForm()
+    showReviewForm.value = true
+  }
+})
 
 // 评价相关
 const showReviewForm = ref(false)
@@ -62,7 +71,7 @@ const submitReview = async () => {
 
 const loadExistingReviews = () => {
   if (!order.value) return
-  existingReviews.value = orderStore.getOrderReviews(order.value.id)
+  existingReviews.value = order.value.reviews || []
 }
 
 const formatDate = (iso) => {
@@ -82,14 +91,6 @@ const currentStepIndex = computed(() => {
   if (!order.value) return -1
   if (order.value.status === -1) return -1
   return steps.findIndex((s) => s.status === order.value.status)
-})
-
-onMounted(() => {
-  loadExistingReviews()
-  if (route.query.review === '1' && order.value?.status === 3 && !order.value?.reviewed) {
-    initReviewForm()
-    showReviewForm.value = true
-  }
 })
 </script>
 
