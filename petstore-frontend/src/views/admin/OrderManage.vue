@@ -1,8 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAdminStore } from '@/stores/admin'
 
 const admin = useAdminStore()
+
+onMounted(() => {
+  admin.loadAll()
+})
 
 const activeTab = ref('all')
 
@@ -20,7 +24,10 @@ const filteredOrders = computed(() => {
 })
 
 const getStatusText = (status) => {
-  const map = { '-3': '退款成功', '-2': '退款中', '-1': '已取消', '0': '待付款', '1': '已付款', '2': '已发货', '3': '已收货' }
+  const map = {
+    '-4': '管理员退单', '-3': '退单成功', '-2': '退单申请中', '-1': '已取消',
+    '0': '待付款', '1': '已付款', '2': '已发货', '3': '已收货', '4': '已完成',
+  }
   return map[String(status)] || '未知'
 }
 
@@ -28,8 +35,8 @@ const getStatusClass = (status) => {
   if (status === 0) return 'status--warning'
   if (status === 1) return 'status--info'
   if (status === 2) return 'status--success'
-  if (status === 3) return 'status--done'
-  if (status === -2) return 'status--danger'
+  if (status >= 3) return 'status--done'
+  if (status < 0) return 'status--danger'
   return 'status--muted'
 }
 
@@ -41,34 +48,46 @@ const formatDate = (iso) => {
 
 const handleShip = (order) => {
   ElMessageBox.confirm(
-    `确认对订单「${order.orderNo}」进行发货操作？`,
+    `确认对订单 #${order.id} 进行发货操作？`,
     '发货确认',
     { confirmButtonText: '确认发货', cancelButtonText: '取消', type: 'info' },
-  ).then(() => {
-    admin.shipOrder(order.id)
-    ElMessage.success('发货成功')
+  ).then(async () => {
+    const res = await admin.shipOrder(order.id)
+    if (res.code === 200) {
+      ElMessage.success('发货成功')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
   }).catch(() => {})
 }
 
 const handleApproveRefund = (order) => {
   ElMessageBox.confirm(
-    `确认同意订单「${order.orderNo}」的退款申请？`,
+    `确认同意订单 #${order.id} 的退款申请？`,
     '退款确认',
     { confirmButtonText: '同意退款', cancelButtonText: '取消', type: 'warning' },
-  ).then(() => {
-    admin.approveRefund(order.id)
-    ElMessage.success('退款已处理')
+  ).then(async () => {
+    const res = await admin.approveRefund(order.id)
+    if (res.code === 200) {
+      ElMessage.success('退款已处理')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
   }).catch(() => {})
 }
 
 const handleRejectRefund = (order) => {
   ElMessageBox.confirm(
-    `确认拒绝订单「${order.orderNo}」的退款申请？`,
+    `确认拒绝订单 #${order.id} 的退款申请？`,
     '拒绝退款',
     { confirmButtonText: '拒绝', cancelButtonText: '取消', type: 'warning' },
-  ).then(() => {
-    admin.rejectRefund(order.id)
-    ElMessage.success('已拒绝退款')
+  ).then(async () => {
+    const res = await admin.rejectRefund(order.id)
+    if (res.code === 200) {
+      ElMessage.success('已拒绝退款')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
   }).catch(() => {})
 }
 </script>
@@ -94,7 +113,7 @@ const handleRejectRefund = (order) => {
     </div>
 
     <!-- 订单列表 -->
-    <div class="order-list">
+    <div class="order-list" v-loading="admin.loading">
       <div v-if="filteredOrders.length === 0" class="empty-state">
         <p>暂无订单数据</p>
       </div>
@@ -102,27 +121,22 @@ const handleRejectRefund = (order) => {
       <div v-for="order in filteredOrders" :key="order.id" class="order-card">
         <div class="order-card__header">
           <div class="order-card__header-left">
-            <span class="order-card__order-no">{{ order.orderNo }}</span>
+            <span class="order-card__order-no">#{{ order.id }}</span>
             <span class="status" :class="getStatusClass(order.status)">{{ getStatusText(order.status) }}</span>
           </div>
-          <span class="order-card__time">{{ formatDate(order.createTime) }}</span>
+          <span class="order-card__time">{{ formatDate(order.createdAt) }}</span>
         </div>
 
         <div class="order-card__body">
-          <div class="order-card__items">
-            <div v-for="(item, idx) in order.items" :key="idx" class="order-card__item">
-              <span class="order-card__item-name">{{ item.name }}</span>
-              <span class="order-card__item-qty">x{{ item.quantity }}</span>
-              <span class="order-card__item-price">¥{{ item.price }}</span>
-            </div>
+          <div class="order-card__info">
+            <span>用户ID：{{ order.userId }}</span>
+            <span>总金额：<strong>¥{{ order.totalAmount }}</strong></span>
           </div>
-          <div class="order-card__user">用户：{{ order.username }}</div>
-          <div class="order-card__address">收货地址：{{ order.address }}</div>
         </div>
 
         <div class="order-card__footer">
           <div class="order-card__total">
-            实付：<span class="order-card__amount">¥{{ order.payAmount }}</span>
+            实付：<span class="order-card__amount">¥{{ order.totalAmount }}</span>
           </div>
           <div class="order-card__actions">
             <button
@@ -249,45 +263,11 @@ const handleRejectRefund = (order) => {
   padding: 20px 24px;
 }
 
-.order-card__items {
-  margin-bottom: 12px;
-}
-
-.order-card__item {
+.order-card__info {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 6px 0;
+  gap: 24px;
   font-size: 14px;
-}
-
-.order-card__item-name {
-  flex: 1;
-  color: #333;
-}
-
-.order-card__item-qty {
-  color: #999;
-  width: 50px;
-  text-align: center;
-}
-
-.order-card__item-price {
-  width: 80px;
-  text-align: right;
-  color: #121212;
-  font-weight: 500;
-}
-
-.order-card__user {
-  font-size: 13px;
   color: #666;
-  margin-bottom: 4px;
-}
-
-.order-card__address {
-  font-size: 13px;
-  color: #999;
 }
 
 .order-card__footer {

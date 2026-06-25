@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAdminStore } from '@/stores/admin'
 
 const admin = useAdminStore()
@@ -23,64 +23,93 @@ const handleSearch = () => {
   currentPage.value = 1
 }
 
-// Dialog
+onMounted(() => {
+  admin.loadAll()
+})
+
+// ===== 类型映射 =====
+const typeMap = { pet: '宠物', accessory: '宠物周边' }
+const getTypeLabel = (val) => typeMap[val] || val
+const getShopName = (shopId) => {
+  const shop = admin.shops.find((s) => s.id === shopId)
+  return shop ? shop.name : '未知商店'
+}
+
+// ===== 弹窗 =====
 const dialogVisible = ref(false)
 const isEditing = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
+const imageFile = ref(null)
 
 const defaultForm = () => ({
+  shopId: '',
   name: '',
-  category: '',
-  price: null,
+  type: '',
   stock: null,
+  price: null,
   description: '',
 })
 const form = ref(defaultForm())
 
 const rules = {
+  shopId: [{ required: true, message: '请选择所属商店', trigger: 'change' }],
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择商品类型', trigger: 'change' }],
   stock: [{ required: true, message: '请输入库存', trigger: 'blur' }],
+  price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
 }
-
-const categories = [
-  { value: 'dogs', label: '狗狗' },
-  { value: 'cats', label: '猫咪' },
-  { value: 'fish', label: '水族' },
-  { value: 'birds', label: '鸟类' },
-  { value: 'small', label: '小宠' },
-]
-
-const getCategoryLabel = (val) => categories.find((c) => c.value === val)?.label || val
 
 const openAdd = () => {
   isEditing.value = false
   editingId.value = null
   form.value = defaultForm()
+  imageFile.value = null
   dialogVisible.value = true
 }
 
 const openEdit = (product) => {
   isEditing.value = true
   editingId.value = product.id
-  form.value = { name: product.name, category: product.category, price: product.price, stock: product.stock, description: product.description || '' }
+  form.value = {
+    shopId: product.shopId || '',
+    name: product.name,
+    type: product.type,
+    stock: product.stock,
+    price: product.price,
+    description: product.description || '',
+  }
+  imageFile.value = null
   dialogVisible.value = true
+}
+
+const handleFileChange = (file) => {
+  imageFile.value = file.raw || file
 }
 
 const handleSave = async () => {
   if (!formRef.value) return
   try { await formRef.value.validate() } catch { return }
 
-  if (isEditing.value) {
-    admin.updateProduct(editingId.value, { ...form.value })
-    ElMessage.success('修改成功')
+  const fd = new FormData()
+  fd.append('shopId', form.value.shopId)
+  fd.append('name', form.value.name)
+  fd.append('type', form.value.type)
+  fd.append('stock', form.value.stock)
+  fd.append('price', String(form.value.price))
+  if (form.value.description) fd.append('description', form.value.description)
+  if (imageFile.value) fd.append('image', imageFile.value)
+
+  const res = isEditing.value
+    ? await admin.updateProduct(editingId.value, fd)
+    : await admin.addProduct(fd)
+
+  if (res.code === 200) {
+    ElMessage.success(isEditing.value ? '修改成功' : '添加成功')
+    dialogVisible.value = false
   } else {
-    admin.addProduct({ ...form.value })
-    ElMessage.success('添加成功')
+    ElMessage.error(res.message || '操作失败')
   }
-  dialogVisible.value = false
 }
 
 const handleDelete = (product) => {
@@ -88,15 +117,14 @@ const handleDelete = (product) => {
     `确定要删除「${product.name}」吗？此操作不可撤销。`,
     '删除确认',
     { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-  ).then(() => {
-    admin.deleteProduct(product.id)
-    ElMessage.success('已删除')
+  ).then(async () => {
+    const res = await admin.deleteProduct(product.id)
+    if (res.code === 200) {
+      ElMessage.success('已删除')
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
   }).catch(() => {})
-}
-
-const handleToggleStatus = (product) => {
-  admin.toggleProductStatus(product.id)
-  ElMessage.success(product.status === '上架' ? '已下架' : '已上架')
 }
 </script>
 
@@ -124,16 +152,19 @@ const handleToggleStatus = (product) => {
     </div>
 
     <!-- 表格 -->
-    <div class="table-wrapper">
+    <div class="table-wrapper" v-loading="admin.loading">
       <el-table :data="pagedProducts" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="商品名称" min-width="180">
+        <el-table-column prop="name" label="商品名称" min-width="160">
           <template #default="{ row }">
             <span class="product-name">{{ row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="分类" width="100">
-          <template #default="{ row }">{{ getCategoryLabel(row.category) }}</template>
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">{{ getTypeLabel(row.type) }}</template>
+        </el-table-column>
+        <el-table-column label="所属商店" width="140">
+          <template #default="{ row }">{{ getShopName(row.shopId) }}</template>
         </el-table-column>
         <el-table-column label="价格" width="100">
           <template #default="{ row }">
@@ -143,17 +174,14 @@ const handleToggleStatus = (product) => {
         <el-table-column prop="stock" label="库存" width="80" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <span class="tag" :class="row.status === '上架' ? 'tag--success' : 'tag--muted'">{{ row.status }}</span>
+            <span class="tag" :class="row.stock > 0 ? 'tag--success' : 'tag--muted'">
+              {{ row.stock > 0 ? '上架' : '下架' }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <button class="action-btn action-btn--primary" @click="openEdit(row)">编辑</button>
-            <button
-              class="action-btn"
-              :class="row.status === '上架' ? 'action-btn--warning' : 'action-btn--success'"
-              @click="handleToggleStatus(row)"
-            >{{ row.status === '上架' ? '下架' : '上架' }}</button>
             <button class="action-btn action-btn--danger" @click="handleDelete(row)">删除</button>
           </template>
         </el-table-column>
@@ -179,12 +207,23 @@ const handleToggleStatus = (product) => {
       destroy-on-close
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="所属商店" prop="shopId">
+          <el-select v-model="form.shopId" placeholder="请选择商店" style="width: 100%">
+            <el-option
+              v-for="shop in admin.shops"
+              :key="shop.id"
+              :label="shop.name"
+              :value="shop.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="商品名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入商品名称" />
         </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="form.category" placeholder="请选择分类" style="width: 100%">
-            <el-option v-for="cat in categories" :key="cat.value" :label="cat.label" :value="cat.value" />
+        <el-form-item label="类型" prop="type">
+          <el-select v-model="form.type" placeholder="请选择类型" style="width: 100%">
+            <el-option label="宠物 (活体)" value="pet" />
+            <el-option label="宠物周边" value="accessory" />
           </el-select>
         </el-form-item>
         <el-form-item label="价格" prop="price">
@@ -193,13 +232,27 @@ const handleToggleStatus = (product) => {
         <el-form-item label="库存" prop="stock">
           <el-input-number v-model="form.stock" :min="0" style="width: 100%" />
         </el-form-item>
+        <el-form-item label="商品图片">
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            list-type="picture"
+            @change="handleFileChange"
+            accept="image/*"
+          >
+            <el-button size="small" type="primary">选择图片</el-button>
+            <template #tip>
+              <div class="el-upload__tip">仅支持 JPG/PNG，尺寸建议 800×800</div>
+            </template>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入商品描述" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
+        <el-button type="primary" @click="handleSave" :loading="false">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -281,10 +334,6 @@ const handleToggleStatus = (product) => {
 
 .action-btn--primary { color: #1c49c2; border-color: #1c49c2; }
 .action-btn--primary:hover { background: #f0f6ff; }
-.action-btn--warning { color: #ff6c10; border-color: #ff6c10; }
-.action-btn--warning:hover { background: #fff5e6; }
-.action-btn--success { color: #00a651; border-color: #00a651; }
-.action-btn--success:hover { background: #e6f9ee; }
 .action-btn--danger { color: #e74c3c; border-color: #e74c3c; }
 .action-btn--danger:hover { background: #fff0f0; }
 

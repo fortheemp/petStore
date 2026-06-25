@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { mockShops } from '@/api/shop'
+import { getAllShops } from '@/api/shop'
 import AMapLoader from '@amap/amap-jsapi-loader'
 
 const router = useRouter()
@@ -15,7 +15,8 @@ const districts = [
 ]
 
 const currentDistrict = ref('jimei')
-const shops = ref(mockShops)
+const shops = ref([])
+const loadingShops = ref(true)
 const selectedShop = ref(null)
 const searchKeyword = ref('')
 
@@ -141,8 +142,10 @@ watch(filteredShops, (list) => {
   addMarkers(list)
 })
 
-onMounted(() => {
-  nextTick(() => initMap())
+onMounted(async () => {
+  shops.value = await getAllShops()
+  loadingShops.value = false
+  await nextTick(() => initMap())
 })
 
 onBeforeUnmount(() => {

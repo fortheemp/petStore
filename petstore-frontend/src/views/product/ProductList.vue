@@ -77,14 +77,24 @@ const sortOptions = [
   { value: 'rating', label: '好评优先' },
 ]
 
+// 商店名称（异步获取）
+const currentShopName = ref('')
+watch(currentShopId, async (id) => {
+  if (id) {
+    const shop = await getShopById(id)
+    currentShopName.value = shop ? shop.name : '商店商品'
+  } else {
+    currentShopName.value = ''
+  }
+}, { immediate: true })
+
 // 面包屑文案
 const pageTitle = computed(() => {
   if (currentKeyword.value) {
     return `搜索"${currentKeyword.value}"`
   }
   if (currentShopId.value) {
-    const shop = getShopById(currentShopId.value)
-    return shop ? shop.name : '商店商品'
+    return currentShopName.value || '商店商品'
   }
   if (currentProductType.value && productTypeMap[currentProductType.value]) {
     const typeLabel = productTypeMap[currentProductType.value].label
