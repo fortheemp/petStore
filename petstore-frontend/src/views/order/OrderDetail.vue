@@ -74,6 +74,27 @@ const loadExistingReviews = () => {
   existingReviews.value = order.value.reviews || []
 }
 
+// 退单相关
+const showRefundDialog = ref(false)
+const refundReason = ref('')
+
+const openRefundDialog = () => {
+  refundReason.value = ''
+  showRefundDialog.value = true
+}
+
+const submitRefund = async () => {
+  if (!order.value) return
+  try {
+    await orderStore.applyRefund(order.value.id, refundReason.value)
+    order.value = await orderStore.getOrderDetailById(order.value.id)
+    showRefundDialog.value = false
+    ElMessage.success('退单申请已提交')
+  } catch (e) {
+    ElMessage.error('退单申请失败：' + (e.message || '未知错误'))
+  }
+}
+
 const formatDate = (iso) => {
   if (!iso) return '-'
   const d = new Date(iso)
@@ -119,8 +140,26 @@ const currentStepIndex = computed(() => {
           订单已取消
         </div>
 
+        <!-- 退单状态提示 -->
+        <div v-if="order.status === -2" class="order-refund-banner order-refund-banner--pending">
+          退单申请审核中
+          <span v-if="order.refundReason" class="order-refund-banner__reason">原因：{{ order.refundReason }}</span>
+        </div>
+        <div v-if="order.status === -3" class="order-refund-banner order-refund-banner--success">
+          退单成功
+          <span v-if="order.refundReason" class="order-refund-banner__reason">原因：{{ order.refundReason }}</span>
+        </div>
+        <div v-if="order.status === -4" class="order-refund-banner order-refund-banner--admin">
+          管理员已退单
+          <span v-if="order.refundReason" class="order-refund-banner__reason">原因：{{ order.refundReason }}</span>
+        </div>
+        <div v-if="(order.status === 2 || order.status === 3) && order.refundReason" class="order-refund-banner order-refund-banner--rejected">
+          退单被拒绝
+          <span class="order-refund-banner__reason">原因：{{ order.refundReason }}</span>
+        </div>
+
         <!-- 状态进度条 -->
-        <div v-if="order.status !== -1" class="status-bar">
+        <div v-if="order.status >= 0" class="status-bar">
           <div
             v-for="(step, index) in steps"
             :key="step.label"
@@ -201,6 +240,9 @@ const currentStepIndex = computed(() => {
             <p><span class="detail-info__label">支付方式：</span>{{ order.payMethod === 'wechat' ? '微信支付' : '支付宝' }}</p>
             <p v-if="order.remark"><span class="detail-info__label">买家留言：</span>{{ order.remark }}</p>
           </div>
+          <div v-if="order.status === 2 || order.status === 3" class="detail-refund-action">
+            <button class="refund-btn" @click="openRefundDialog">申请退单</button>
+          </div>
         </div>
 
         <!-- 评价区域 (已完成订单) -->
@@ -258,6 +300,24 @@ const currentStepIndex = computed(() => {
           </div>
         </div>
       </template>
+    </div>
+
+    <!-- 退单原因弹窗 -->
+    <div v-if="showRefundDialog" class="dialog-mask" @click.self="showRefundDialog = false">
+      <div class="dialog">
+        <h3 class="dialog__title">申请退单</h3>
+        <p class="dialog__hint">请填写退单原因，提交后等待管理员审核。</p>
+        <textarea
+          v-model="refundReason"
+          class="dialog__textarea"
+          placeholder="请输入退单原因（可不填）"
+          rows="4"
+        ></textarea>
+        <div class="dialog__actions">
+          <button class="dialog__btn dialog__btn--cancel" @click="showRefundDialog = false">取消</button>
+          <button class="dialog__btn dialog__btn--confirm" @click="submitRefund">提交申请</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -633,4 +693,114 @@ const currentStepIndex = computed(() => {
   font-size: 1.2rem;
   color: #999;
 }
+
+/* ========== 退单 ========== */
+.order-refund-banner {
+  padding: 2rem;
+  border-radius: 12px;
+  font-size: 1.6rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 2.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.order-refund-banner--pending { background: #fff3e0; color: #e65100; }
+.order-refund-banner--success { background: #e6f9ee; color: #00a651; }
+.order-refund-banner--admin { background: #fff0f0; color: #e74c3c; }
+.order-refund-banner--rejected { background: #fff3f0; color: #e74c3c; }
+.order-refund-banner__reason {
+  font-size: 1.3rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.detail-refund-action {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.refund-btn {
+  padding: 0.8rem 2.4rem;
+  background: #fff;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+  border-radius: 6px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.refund-btn:hover { background: #fff0f0; }
+
+/* ========== 弹窗 ========== */
+.dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2.8rem;
+  width: 42rem;
+  max-width: 90vw;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.dialog__title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #121212;
+  margin-bottom: 0.8rem;
+}
+
+.dialog__hint {
+  font-size: 1.3rem;
+  color: #999;
+  margin-bottom: 1.6rem;
+}
+
+.dialog__textarea {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.2rem;
+  font-size: 1.4rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.dialog__textarea:focus { border-color: #e74c3c; }
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.2rem;
+  margin-top: 2rem;
+}
+
+.dialog__btn {
+  padding: 0.8rem 2.4rem;
+  border-radius: 6px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+.dialog__btn--cancel { background: #f5f5f5; color: #666; }
+.dialog__btn--cancel:hover { background: #eee; }
+.dialog__btn--confirm { background: #e74c3c; color: #fff; }
+.dialog__btn--confirm:hover { background: #c0392b; }
 </style>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { post } from '@/api/request'
+import { post, put } from '@/api/request'
 
 const userStore = useUserStore()
 
@@ -16,7 +16,13 @@ const maskedPhone = computed(() => {
   return phone.replace(/(\d{3})\*{4}(\d{4})/, '$1****$2')
 })
 
-const handleSave = () => {
+const handleSave = async () => {
+  await put('/user/profile', {
+    id: userStore.userInfo.id,
+    nickname: profileForm.value.nickname,
+    gender: profileForm.value.gender,
+    email: profileForm.value.email,
+  })
   userStore.updateUserInfo({
     nickname: profileForm.value.nickname,
     gender: profileForm.value.gender,
@@ -48,6 +54,7 @@ const handleAvatarChange = async (e) => {
     })
     const avatarUrl = res || res?.url
     if (avatarUrl) {
+      await put('/user/profile', { id: userStore.userInfo.id, avatar: avatarUrl })
       userStore.updateUserInfo({ avatar: avatarUrl })
       ElMessage.success('头像已更新')
     }
