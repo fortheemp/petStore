@@ -44,28 +44,38 @@ const totalTime = ref(0)
 
 const handlePlayVideo = (video) => {
   currentVideo.value = video
-  totalTime.value = video.durationSeconds
   currentTime.value = 0
+  totalTime.value = 0
   isPlaying.value = false
   showPlayer.value = true
 }
 
 const handleClosePlayer = () => {
-  if (videoRef.value) {
-    videoRef.value.pause()
+  if (playerVideoRef.value) {
+    playerVideoRef.value.pause()
   }
   showPlayer.value = false
   currentVideo.value = null
   isPlaying.value = false
   currentTime.value = 0
+  totalTime.value = 0
+}
+
+// 播放器真实视频 ref
+const playerVideoRef = ref(null)
+
+const onLoadedMetadata = () => {
+  if (playerVideoRef.value) {
+    totalTime.value = Math.floor(playerVideoRef.value.duration)
+  }
 }
 
 const togglePlay = () => {
-  if (!videoRef.value) return
+  if (!playerVideoRef.value) return
   if (isPlaying.value) {
-    videoRef.value.pause()
+    playerVideoRef.value.pause()
   } else {
-    videoRef.value.play()
+    playerVideoRef.value.play()
   }
   isPlaying.value = !isPlaying.value
 }
@@ -156,7 +166,30 @@ onMounted(() => {
           class="video-card"
           @click="handlePlayVideo(video)"
         >
-          <div class="video-card__cover" :style="{ background: coverThemes[idx % coverThemes.length].bg }">
+          <div
+            v-if="video.url"
+            class="video-card__cover video-card__cover--video"
+          >
+            <video
+              :src="video.url"
+              preload="metadata"
+              muted
+              class="video-card__video-thumb"
+            ></video>
+            <div class="video-card__cover-overlay">
+              <div class="video-card__play-btn">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,0.9)" stroke="none"/>
+                  <polygon points="10 8 16 12 10 16" fill="#333" stroke="none"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div
+            v-else
+            class="video-card__cover"
+            :style="{ background: coverThemes[idx % coverThemes.length].bg }"
+          >
             <div class="video-card__cover-icon">{{ coverThemes[idx % coverThemes.length].icon }}</div>
             <div class="video-card__cover-overlay">
               <div class="video-card__play-btn">
@@ -166,7 +199,6 @@ onMounted(() => {
                 </svg>
               </div>
             </div>
-            <div class="video-card__duration">{{ video.duration }}</div>
           </div>
           <div class="video-card__info">
             <h3 class="video-card__title">{{ video.title }}</h3>
@@ -194,7 +226,18 @@ onMounted(() => {
         </div>
 
         <div class="video-player__content">
-          <div class="video-player__mock-screen" @click="togglePlay">
+          <div v-if="currentVideo?.url" class="video-player__real-screen" @click="togglePlay">
+            <video
+              ref="playerVideoRef"
+              :src="currentVideo.url"
+              preload="metadata"
+              class="video-player__video"
+              @timeupdate="onTimeUpdate"
+              @loadedmetadata="onLoadedMetadata"
+              @ended="isPlaying = false"
+            ></video>
+          </div>
+          <div v-else class="video-player__mock-screen" @click="togglePlay">
             <svg v-if="!isPlaying" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
               <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.3)" stroke="white"/>
               <polygon points="10 8 16 12 10 16" fill="white" stroke="none"/>
@@ -336,6 +379,18 @@ onMounted(() => {
   font-size: 48px;
   opacity: 0.25;
   transition: all 0.3s ease;
+}
+
+.video-card__cover--video {
+  background: #000;
+  padding: 0;
+}
+
+.video-card__video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .video-card:hover .video-card__cover-icon {
@@ -488,6 +543,25 @@ onMounted(() => {
 
 .video-player__content {
   background: #000;
+}
+
+.video-player__real-screen {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 480px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.video-player__video {
+  width: 100%;
+  height: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
 }
 
 .video-player__mock-screen {

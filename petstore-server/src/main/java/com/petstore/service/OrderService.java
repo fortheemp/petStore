@@ -6,6 +6,7 @@ import com.petstore.entity.*;
 import com.petstore.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.util.Map;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -224,18 +225,31 @@ public class OrderService {
     }
 
     /**
-     * 评价
+     * 评价（支持多商品批量评价）
      */
-    public void review(Long orderId, Long userId, String content, Integer rating) {
+    public void review(Long orderId, Long userId, List<Map<String, Object>> reviews) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("订单不存在"));
         if (order.getStatus() != 3) {
             throw new RuntimeException("仅待评价订单可以进行评价");
         }
-        reviewService.addReview(orderId, userId, content, rating);
+        for (Map<String, Object> item : reviews) {
+            Long productId = Long.valueOf(item.get("productId").toString());
+            String content = (String) item.get("content");
+            Integer rating = Integer.valueOf(item.get("rating").toString());
+            reviewService.addReview(orderId, userId, productId, content, rating);
+            reviewService.recalcProductRating(productId);
+        }
         order.setStatus(4); // 已完成
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
+    }
+
+    /**
+     * 判断订单是否已有评价记录
+     */
+    public boolean isOrderReviewed(Long orderId) {
+        return reviewService.existsByOrderId(orderId);
     }
 
     /**

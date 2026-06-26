@@ -2,6 +2,7 @@ package com.petstore.controller;
 
 import com.petstore.common.Result;
 import com.petstore.service.ProductService;
+import com.petstore.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +12,9 @@ public class ProductController {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private ReviewService reviewService;
 
     @GetMapping
     public Result list(@RequestParam(required = false) Long shopId,
@@ -32,5 +36,10 @@ public class ProductController {
     @GetMapping("/{id}")
     public Result detail(@PathVariable Long id) {
         return Result.success(productService.getById(id));
+    }
+
+    @GetMapping("/{id}/reviews")
+    public Result getProductReviews(@PathVariable Long id) {
+        return Result.success(reviewService.getByProductId(id));
     }
 }

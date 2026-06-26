@@ -17,3 +17,8 @@ Thumbs.db
 
 # Env
 *.env.local
+
+# Local-only (不推送)
+.claude/
+txt/
+后端添加清单.md

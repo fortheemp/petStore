@@ -11,9 +11,11 @@ const userStore = useUserStore()
 
 const shops = ref([])
 const nearbyPois = ref([])
+const shopsLoading = ref(true)
 const mapCenter = ref([116.397, 39.908]) // 跟踪地图中心点
 
 const loadShops = async () => {
+  shopsLoading.value = true
   try {
     const res = await getShopList()
     const list = Array.isArray(res) ? res : []
@@ -24,6 +26,8 @@ const loadShops = async () => {
     }))
   } catch {
     shops.value = []
+  } finally {
+    shopsLoading.value = false
   }
 }
 const selectedShop = ref(null)
@@ -276,9 +280,17 @@ onBeforeUnmount(() => {
         <!-- Shop List -->
         <div class="shop-list">
           <div class="shop-list__count">
-            找到 {{ filteredShops.length }} 家商店
+            {{ shopsLoading ? '加载中...' : `找到 ${filteredShops.length} 家商店` }}
           </div>
-          <div class="shop-list__items">
+          <!-- 骨架屏 -->
+          <div v-if="shopsLoading" class="shop-list__items">
+            <div v-for="i in 5" :key="i" class="skeleton-shop-card">
+              <div class="skeleton-shop-card__title"></div>
+              <div class="skeleton-shop-card__line"></div>
+              <div class="skeleton-shop-card__line skeleton-shop-card__line--short"></div>
+            </div>
+          </div>
+          <div v-else class="shop-list__items">
             <div
               v-for="shop in filteredShops"
               :key="shop.id"
@@ -377,6 +389,38 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: #121212;
   margin-bottom: 16px;
+}
+
+/* 骨架屏 */
+.skeleton-shop-card {
+  padding: 16px;
+}
+
+.skeleton-shop-card__title {
+  height: 16px;
+  width: 60%;
+  background: #f0f0f0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-shop-card__line {
+  height: 12px;
+  width: 100%;
+  background: #f0f0f0;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-shop-card__line--short {
+  width: 40%;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* Search Bar */

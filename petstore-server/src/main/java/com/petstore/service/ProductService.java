@@ -1,18 +1,24 @@
 package com.petstore.service;
 
 import com.petstore.entity.Product;
+import com.petstore.entity.Shop;
 import com.petstore.repository.ProductRepository;
+import com.petstore.repository.ShopRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductService {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private ShopRepository shopRepository;
 
     public List<Product> getByShopId(Long shopId) {
         return productRepository.findByShopId(shopId);
@@ -23,8 +29,12 @@ public class ProductService {
     }
 
     public Product getById(Long id) {
-        return productRepository.findById(id)
+        Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("商品不存在"));
+        if (product.getShopId() != null) {
+            shopRepository.findById(product.getShopId()).ifPresent(s -> product.setShopName(s.getName()));
+        }
+        return product;
     }
 
     public Product addProduct(Long shopId, String name, String type, Integer stock,
@@ -59,14 +69,26 @@ public class ProductService {
     }
 
     public List<Product> listAll() {
-        return productRepository.findAll();
+        return fillShopNames(productRepository.findAll());
     }
 
     public List<Product> search(String keyword) {
+        List<Product> products;
         if (keyword == null || keyword.trim().isEmpty()) {
-            return productRepository.findAll();
+            products = productRepository.findAll();
+        } else {
+            products = productRepository.findByNameContaining(keyword);
         }
-        return productRepository.findByNameContaining(keyword);
+        return fillShopNames(products);
+    }
+
+    private List<Product> fillShopNames(List<Product> products) {
+        for (Product p : products) {
+            if (p.getShopId() != null) {
+                shopRepository.findById(p.getShopId()).ifPresent(s -> p.setShopName(s.getName()));
+            }
+        }
+        return products;
     }
 
     public void reduceStock(Long productId, int quantity) {

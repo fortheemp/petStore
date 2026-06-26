@@ -19,7 +19,7 @@ spring:
         format_sql: true
   sql:
     init:
-      mode: always
+      mode: never
       schema-locations: classpath:schema.sql
       data-locations: classpath:data.sql
   servlet:

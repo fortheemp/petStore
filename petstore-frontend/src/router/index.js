@@ -129,6 +129,12 @@ const routes = [
         component: () => import('@/views/admin/UserManage.vue'),
         meta: { title: '用户管理' },
       },
+      {
+        path: 'videos',
+        name: 'VideoManage',
+        component: () => import('@/views/admin/VideoManage.vue'),
+        meta: { title: '视频管理' },
+      },
     ],
   },
 ]

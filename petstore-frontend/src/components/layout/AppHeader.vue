@@ -1,13 +1,17 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useUserStore } from '@/stores/user'
+import { fetchAllProducts, categoryMap } from '@/api/product'
 
 const router = useRouter()
 const cart = useCartStore()
 const user = useUserStore()
 const searchQuery = ref('')
+const searchSuggestions = ref([])
+const showSuggestions = ref(false)
+let debounceTimer = null
 
 const mainCategories = [
   { key: 'pet', label: '宠物', query: { productType: 'pet' } },
@@ -21,9 +25,55 @@ const navLinks = [
 
 const handleSearch = () => {
   if (searchQuery.value.trim()) {
+    showSuggestions.value = false
     router.push({ path: '/products', query: { keyword: searchQuery.value.trim() } })
   }
 }
+
+const selectSuggestion = (item) => {
+  searchQuery.value = item.name
+  showSuggestions.value = false
+  router.push({ path: '/products', query: { keyword: item.name } })
+}
+
+watch(searchQuery, (val) => {
+  clearTimeout(debounceTimer)
+  if (!val || !val.trim()) {
+    searchSuggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  debounceTimer = setTimeout(async () => {
+    const kw = val.toLowerCase()
+    const all = await fetchAllProducts()
+    searchSuggestions.value = all
+      .filter((p) =>
+        p.name.toLowerCase().includes(kw) ||
+        (categoryMap[p.category]?.label || '').includes(kw) ||
+        (p.shopName || '').toLowerCase().includes(kw)
+      )
+      .slice(0, 8)
+      .map((p) => ({
+        name: p.name,
+        category: categoryMap[p.category]?.label || '',
+        shopName: p.shopName || '',
+        price: p.price,
+      }))
+    showSuggestions.value = searchSuggestions.value.length > 0
+  }, 200)
+})
+
+const onSearchBlur = () => {
+  setTimeout(() => { showSuggestions.value = false }, 150)
+}
+
+const onSearchFocus = () => {
+  if (searchSuggestions.value.length > 0) {
+    showSuggestions.value = true
+  }
+}
+
+onBeforeUnmount(() => clearTimeout(debounceTimer))
 
 const currentType = ref('')
 
@@ -81,20 +131,39 @@ const handleCommand = (cmd) => {
           </router-link>
         </div>
 
-        <!-- 搜索栏（缩小，靠右） -->
-        <div class="header__search">
-          <el-input
-            v-model="searchQuery"
-            placeholder="搜索商品..."
-            size="default"
-            @keyup.enter="handleSearch"
-          >
-            <template #append>
-              <el-button @click="handleSearch">
-                <el-icon><Search /></el-icon>
-              </el-button>
-            </template>
-          </el-input>
+        <!-- 搜索栏 -->
+        <div class="header__search" @click.stop>
+          <div class="header__search-wrap">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索商品名称、分类..."
+              size="default"
+              @keyup.enter="handleSearch"
+              @focus="onSearchFocus"
+              @blur="onSearchBlur"
+            >
+              <template #append>
+                <el-button @click="handleSearch">
+                  <el-icon><Search /></el-icon>
+                </el-button>
+              </template>
+            </el-input>
+            <!-- 搜索建议 -->
+            <div v-if="showSuggestions && searchSuggestions.length" class="search-suggestions">
+              <div
+                v-for="(item, idx) in searchSuggestions"
+                :key="idx"
+                class="search-suggestions__item"
+                @mousedown.prevent="selectSuggestion(item)"
+              >
+                <span class="search-suggestions__name">{{ item.name }}</span>
+                <span class="search-suggestions__meta">
+                  <span v-if="item.category" class="search-suggestions__tag">{{ item.category }}</span>
+                  <span v-if="item.shopName" class="search-suggestions__shop">{{ item.shopName }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 右侧操作区 -->
@@ -116,7 +185,8 @@ const handleCommand = (cmd) => {
             <el-dropdown trigger="click" @command="handleCommand">
               <div class="header__action-item header__user">
                 <el-avatar :size="28" class="header__avatar">
-                  {{ user.displayName.charAt(0) }}
+                  <img v-if="user.userInfo?.avatar" :src="user.userInfo.avatar" alt="头像" class="header__avatar-img" />
+                  <span v-else>{{ user.displayName.charAt(0) }}</span>
                 </el-avatar>
                 <span class="header__action-label">{{ user.displayName }}</span>
               </div>
@@ -240,11 +310,15 @@ const handleCommand = (cmd) => {
   flex-shrink: 0;
 }
 
-/* 搜索栏（缩小，靠右） */
+/* 搜索栏 */
 .header__search {
   flex: 1;
   max-width: 42rem;
   margin-left: auto;
+}
+
+.header__search-wrap {
+  position: relative;
 }
 
 .header__search :deep(.el-input__wrapper) {
@@ -270,6 +344,61 @@ const handleCommand = (cmd) => {
 
 .header__search :deep(.el-input__append .el-icon) {
   color: #fff;
+}
+
+/* 搜索建议 */
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.search-suggestions__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.search-suggestions__item:hover {
+  background: #f5f7fa;
+}
+
+.search-suggestions__name {
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.search-suggestions__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.search-suggestions__tag {
+  font-size: 11px;
+  color: #1c49c2;
+  background: #f0f4ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.search-suggestions__shop {
+  font-size: 11px;
+  color: #999;
 }
 
 /* 右侧操作 */
@@ -340,6 +469,13 @@ const handleCommand = (cmd) => {
   color: var(--color-brand-blue);
   font-size: 1.2rem;
   font-weight: 600;
+  overflow: hidden;
+}
+
+.header__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .dropdown-link {

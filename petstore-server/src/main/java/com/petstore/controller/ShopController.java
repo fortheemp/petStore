@@ -14,7 +14,11 @@ public class ShopController {
 
     @GetMapping
     public Result getNearbyShops(@RequestParam(required = false) Double lat,
-                                  @RequestParam(required = false) Double lng) {
+                                  @RequestParam(required = false) Double lng,
+                                  @RequestParam(required = false) String district) {
+        if (district != null && !district.isEmpty()) {
+            return Result.success(shopService.searchByDistrict(district));
+        }
         return Result.success(shopService.getNearbyShops(lat, lng));
     }
 

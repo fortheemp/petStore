@@ -49,6 +49,7 @@ const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名3-20个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9]+$/, message: '用户名只能包含英文字母和数字', trigger: 'blur' },
   ],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
@@ -138,7 +139,7 @@ onUnmounted(() => {
 
       <el-form ref="formRef" :model="registerForm" :rules="rules" @submit.prevent="handleRegister">
         <el-form-item prop="username" class="auth-form__item">
-          <el-input v-model="registerForm.username" placeholder="用户名" size="large" :prefix-icon="User" />
+          <el-input v-model="registerForm.username" placeholder="用户名（英文字母或数字）" size="large" :prefix-icon="User" />
         </el-form-item>
 
         <el-form-item prop="phone" class="auth-form__item">

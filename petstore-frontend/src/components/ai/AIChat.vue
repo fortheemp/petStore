@@ -55,8 +55,13 @@ const sendMessage = async () => {
   }
 }
 
-const handleQuickQuestion = (question) => {
-  inputMessage.value = question
+const handleQuickQuestion = (item) => {
+  if (item.action === 'navigate') {
+    router.push(item.path)
+    visible.value = false
+    return
+  }
+  inputMessage.value = item.text
   sendMessage()
 }
 
@@ -81,9 +86,12 @@ const scrollToBottom = () => {
 }
 
 const quickQuestions = [
-  '狗狗吃什么粮食好？',
-  '猫咪玩具推荐',
-  '如何给宠物洗澡？',
+  { text: '查看我的订单', action: 'navigate', path: '/user/orders' },
+  { text: '附近宠物商店', action: 'navigate', path: '/nearby-shops' },
+  { text: '浏览全部商品', action: 'navigate', path: '/products' },
+  { text: '狗狗吃什么粮食好？', action: 'chat' },
+  { text: '猫咪玩具推荐', action: 'chat' },
+  { text: '如何给宠物洗澡？', action: 'chat' },
 ]
 
 const handleKeydown = (e) => {
@@ -141,11 +149,12 @@ const handleKeydown = (e) => {
     <div v-if="messages.length <= 1" class="ai-chat__quick">
       <button
         v-for="q in quickQuestions"
-        :key="q"
+        :key="q.text"
         class="quick-btn"
+        :class="{ 'quick-btn--nav': q.action === 'navigate' }"
         @click="handleQuickQuestion(q)"
       >
-        {{ q }}
+        {{ q.text }}
       </button>
     </div>
 
@@ -276,6 +285,18 @@ const handleKeydown = (e) => {
 .quick-btn:hover {
   background: #f0f6ff;
   border-color: #1c49c2;
+}
+
+.quick-btn--nav {
+  background: #f0f6ff;
+  border-color: #1c49c2;
+  color: #fff;
+  background: #1c49c2;
+}
+
+.quick-btn--nav:hover {
+  background: #163da0;
+  border-color: #163da0;
 }
 
 .ai-chat__input-area {

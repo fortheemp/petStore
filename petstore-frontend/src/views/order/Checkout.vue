@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useOrderStore } from '@/stores/order'
@@ -16,9 +16,15 @@ const shippingFee = computed(() => cart.shipping)
 const payAmount = computed(() => totalAmount.value + shippingFee.value)
 
 const addresses = computed(() => addressStore.addresses)
-const defaultAddr = computed(() => addressStore.getDefault())
-const selectedAddressId = ref(defaultAddr.value?.id || (addresses.value[0]?.id ?? null))
+const selectedAddressId = ref(null)
 const selectedAddress = computed(() => addresses.value.find((a) => a.id === selectedAddressId.value))
+
+watch(addresses, (list) => {
+  if (list.length && !selectedAddressId.value) {
+    const def = list.find((a) => a.isDefault)
+    selectedAddressId.value = def?.id || list[0]?.id || null
+  }
+}, { immediate: true })
 
 const remark = ref('')
 const payMethod = ref('wechat')
@@ -38,6 +44,7 @@ const submitOrder = async () => {
     cartItemIds,
   })
   if (result) {
+    await cart.clearCart()
     ElMessage.success('订单创建成功')
     router.push('/user/orders')
   } else {
@@ -322,7 +329,7 @@ const submitOrder = async () => {
 }
 .pay-method:hover { border-color: #ccc; }
 .pay-method--active { border-color: #1c49c2; background: #f0f6ff; }
-.pay-method__radio { accent-color: #1c49c2; }
+.pay-method__radio { display: none; }
 
 /* ========== 摘要 ========== */
 .checkout-summary {

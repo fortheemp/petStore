@@ -1,47 +1,74 @@
-const mockProducts = [
-  { id: 1, name: '皇家小型犬成犬粮', price: 159, category: 'dog-food' },
-  { id: 2, name: '渴望六种鱼犬粮', price: 289, category: 'dog-food' },
-  { id: 3, name: '纽翠斯黑钻系列', price: 245, category: 'dog-food' },
-  { id: 4, name: '皇家幼猫猫粮', price: 139, category: 'cat-food' },
-  { id: 5, name: '渴望六种鱼猫粮', price: 269, category: 'cat-food' },
-  { id: 6, name: '宠物沐浴露', price: 39, category: 'supplies' },
-  { id: 7, name: '逗猫棒', price: 19, category: 'toys' },
-  { id: 8, name: '狗狗牵引绳', price: 49, category: 'supplies' },
-]
+import { getProducts } from '@/api/product'
+
+let _cachedProducts = null
+
+async function loadProducts() {
+  if (!_cachedProducts) {
+    const res = await getProducts({ pageSize: 100 })
+    _cachedProducts = res?.list || []
+  }
+  return _cachedProducts
+}
+
+function matchProducts(products, keywords) {
+  return products.filter((p) => {
+    const text = (p.name + ' ' + (p.category || '')).toLowerCase()
+    return keywords.some((kw) => text.includes(kw))
+  }).slice(0, 3)
+}
 
 const rules = [
   {
     keywords: ['狗粮', '狗狗吃什么', '狗粮食', '狗粮推荐'],
-    reply: '狗狗的粮食选择很重要，要根据年龄、体型来选择。以下是几款口碑很好的狗粮：',
-    products: [1, 2, 3],
+    reply: '狗狗的粮食选择很重要，要根据年龄、体型来选择。以下是店里几款口碑不错的：',
+    matchKeywords: ['粮', '狗'],
   },
   {
     keywords: ['猫粮', '猫咪吃什么', '猫粮食', '猫粮推荐'],
     reply: '猫咪的粮食推荐以下几款，都是知名品牌：',
-    products: [4, 5],
+    matchKeywords: ['粮', '猫'],
   },
   {
     keywords: ['洗澡', '沐浴', '清洁'],
-    reply: '给宠物洗澡建议使用专用的宠物沐浴露，人用的沐浴露可能会伤害宠物皮肤。推荐这款：',
-    products: [6],
+    reply: '给宠物洗澡建议使用专用的宠物沐浴露，人用的可能会伤害宠物皮肤。店里有这些清洁用品：',
+    matchKeywords: ['沐浴', '清洁', '洗'],
   },
   {
     keywords: ['玩具', '逗猫', '互动'],
-    reply: '给猫咪买玩具推荐逗猫棒，可以增进感情，让猫咪多运动：',
-    products: [7],
+    reply: '给宠物买玩具可以增进感情，让它们多运动：',
+    matchKeywords: ['玩具', '逗'],
   },
   {
     keywords: ['牵引', '遛狗', '出门'],
-    reply: '遛狗必备牵引绳，保护狗狗安全，推荐这款：',
-    products: [8],
+    reply: '遛狗必备牵引绳，保护狗狗安全：',
+    matchKeywords: ['牵引', '绳'],
+  },
+  {
+    keywords: ['猫砂', '猫厕所'],
+    reply: '猫砂是养猫必备用品，推荐这几款：',
+    matchKeywords: ['猫砂'],
+  },
+  {
+    keywords: ['水族', '鱼缸', '养鱼'],
+    reply: '水族用品推荐：',
+    matchKeywords: ['鱼', '水族', '鱼缸'],
+  },
+  {
+    keywords: ['鸟', '鹦鹉', '鸟笼'],
+    reply: '鸟类用品推荐：',
+    matchKeywords: ['鸟', '鹦鹉'],
   },
   {
     keywords: ['订单', '物流', '快递', '发货'],
-    reply: '关于订单和物流的问题，您可以：\n\n1. 登录后在「我的订单」查看物流信息\n2. 联系客服：400-888-8888\n3. 发送订单号给我，我帮您查询\n\n请问您还有什么问题吗？',
+    reply: '关于订单和物流的问题，您可以：\n\n1. 点击下方快捷入口查看「我的订单」\n2. 联系客服：400-888-8888\n\n请问还有什么可以帮你的？',
+  },
+  {
+    keywords: ['附近', '商店', '店铺', '门店'],
+    reply: '我们有多个线下门店，点击下方快捷入口可以查看附近宠物商店：',
   },
   {
     keywords: ['你好', '在吗', '有人吗', '客服'],
-    reply: '你好！我是PetStore智能助手，可以为你提供：\n\n- 宠物喂养知识\n- 商品推荐\n- 订单咨询\n\n请问有什么可以帮你的？',
+    reply: '你好！我是PetStore智能助手，可以为你提供：\n\n- 宠物喂养知识\n- 商品推荐\n- 订单咨询\n- 附近商店\n\n请问有什么可以帮你的？',
   },
   {
     keywords: ['谢谢', '感谢', '多谢'],
@@ -49,42 +76,38 @@ const rules = [
   },
 ]
 
-const defaultReply = '抱歉，我没有完全理解你的问题。你可以尝试问我：\n\n- 狗狗/猫咪吃什么粮食好？\n- 有什么宠物玩具推荐？\n- 如何给宠物洗澡？\n- 订单物流问题\n\n或者直接联系人工客服：400-888-8888'
+const defaultReply = '抱歉，我没有完全理解你的问题。你可以尝试问我：\n\n- 狗狗/猫咪吃什么粮食好？\n- 有什么宠物玩具推荐？\n- 如何给宠物洗澡？\n- 订单物流问题\n- 附近宠物商店\n\n或者直接联系人工客服：400-888-8888'
 
-export function getAIReply(userMessage) {
-  return new Promise((resolve) => {
-    const delay = 500 + Math.random() * 1000
-    setTimeout(() => {
-      const lowerMessage = userMessage.toLowerCase()
-      let reply = defaultReply
-      let recommendProducts = []
+export async function getAIReply(userMessage) {
+  const products = await loadProducts()
+  const lowerMessage = userMessage.toLowerCase()
+  let reply = defaultReply
+  let recommendProducts = []
 
-      for (const rule of rules) {
-        if (rule.keywords.some((kw) => lowerMessage.includes(kw))) {
-          reply = rule.reply
-          recommendProducts = rule.products
-            .map((id) => mockProducts.find((p) => p.id === id))
-            .filter(Boolean)
-          break
-        }
+  for (const rule of rules) {
+    if (rule.keywords.some((kw) => lowerMessage.includes(kw))) {
+      reply = rule.reply
+      if (rule.matchKeywords) {
+        recommendProducts = matchProducts(products, rule.matchKeywords)
       }
+      break
+    }
+  }
 
-      resolve({
-        id: Date.now(),
-        content: reply,
-        sender: 'ai',
-        timestamp: new Date(),
-        recommendProducts,
-      })
-    }, delay)
-  })
+  return {
+    id: Date.now(),
+    content: reply,
+    sender: 'ai',
+    timestamp: new Date(),
+    recommendProducts,
+  }
 }
 
 export function getWelcomeMessage() {
   return {
     id: Date.now(),
     content:
-      '你好！我是PetStore智能助手，可以为你提供：\n\n- 宠物喂养知识\n- 商品推荐\n- 订单咨询\n\n请问有什么可以帮你的？',
+      '你好！我是PetStore智能助手，可以为你提供：\n\n- 宠物喂养知识\n- 商品推荐\n- 订单咨询\n- 附近商店\n\n请问有什么可以帮你的？',
     sender: 'ai',
     timestamp: new Date(),
   }

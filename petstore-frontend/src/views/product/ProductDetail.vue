@@ -8,6 +8,15 @@ const route = useRoute()
 const router = useRouter()
 const cart = useCartStore()
 
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const product = ref(null)
 const loading = ref(true)
 const activeImageIndex = ref(0)
@@ -17,6 +26,15 @@ const activeTab = ref('detail')
 const relatedProducts = ref([])
 const isFavorited = ref(false)
 const FAVORITES_KEY = 'petstore_favorites'
+const showVideo = ref(false)
+const productVideoRef = ref(null)
+
+const toggleVideo = () => {
+  showVideo.value = !showVideo.value
+  if (!showVideo.value && productVideoRef.value) {
+    productVideoRef.value.pause()
+  }
+}
 
 const toggleFavorite = () => {
   const ids = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]')
@@ -149,6 +167,36 @@ onMounted(fetchProduct)
                   </g>
                 </svg>
                 <span class="product-gallery__empty-text">暂无图片</span>
+              </div>
+              <!-- 视频播放按钮 -->
+              <button
+                v-if="product.videoUrl && !showVideo"
+                class="product-gallery__video-btn"
+                @click="toggleVideo"
+              >
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,0.92)" stroke="none"/>
+                  <polygon points="10 8 16 12 10 16" fill="#333" stroke="none"/>
+                </svg>
+                <span class="product-gallery__video-label">播放视频</span>
+              </button>
+              <!-- 视频播放器覆盖层 -->
+              <div v-if="showVideo && product.videoUrl" class="product-gallery__video-overlay">
+                <div class="product-gallery__video-header">
+                  <span>商品视频</span>
+                  <button class="product-gallery__video-close" @click="toggleVideo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <video
+                  ref="productVideoRef"
+                  :src="product.videoUrl"
+                  controls
+                  autoplay
+                  class="product-gallery__video-player"
+                ></video>
               </div>
             </div>
             <!-- 缩略图 -->
@@ -299,11 +347,12 @@ onMounted(fetchProduct)
                 </div>
                 <div v-for="review in product.reviews" :key="review.id" class="review-item">
                   <div class="review-item__header">
+                    <span class="review-item__avatar">{{ (review.username || '').charAt(0) }}</span>
                     <span class="review-item__user">{{ review.username }}</span>
                     <span class="review-item__stars">
                       <svg v-for="i in review.rating" :key="i" width="14" height="14" viewBox="0 0 24 24" fill="#ffc107" stroke="#ffc107" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </span>
-                    <span class="review-item__date">{{ review.createTime }}</span>
+                    <span class="review-item__date">{{ formatDate(review.createdAt) }}</span>
                   </div>
                   <p class="review-item__content">{{ review.content }}</p>
                 </div>
@@ -393,6 +442,7 @@ onMounted(fetchProduct)
 
 .product-gallery__main {
   width: 100%;
+  position: relative;
   aspect-ratio: 1;
   background: linear-gradient(135deg, #e8edf5 0%, #d5dce8 100%);
   border-radius: 1.6rem;
@@ -426,6 +476,73 @@ onMounted(fetchProduct)
 .product-gallery__empty-text {
   font-size: 1.4rem;
   color: #bbb;
+}
+
+.product-gallery__video-btn {
+  position: absolute;
+  bottom: 1.6rem;
+  left: 1.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 0.8rem;
+  padding: 0.8rem 1.4rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.product-gallery__video-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.product-gallery__video-label {
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+
+.product-gallery__video-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+}
+
+.product-gallery__video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.4rem;
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.product-gallery__video-close {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.product-gallery__video-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.product-gallery__video-player {
+  width: 100%;
+  flex: 1;
+  object-fit: contain;
+  background: #000;
 }
 
 .product-gallery__thumbs {
@@ -806,6 +923,19 @@ onMounted(fetchProduct)
   align-items: center;
   gap: 1.2rem;
   margin-bottom: 0.8rem;
+}
+.review-item__avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: var(--color-brand-blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 .review-item__user { font-size: 1.4rem; font-weight: 600; color: #333; }
 .review-item__stars { display: flex; gap: 2px; }
