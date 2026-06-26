@@ -1,15 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useAddressStore } from '@/stores/address'
-import { useUserStore } from '@/stores/user'
+import { chinaRegions } from '@/data/china-regions'
 
 const addressStore = useAddressStore()
-const userStore = useUserStore()
-const userId = computed(() => userStore.userInfo?.id)
-
-onMounted(() => {
-  if (userId.value) addressStore.fetchAll(userId.value)
-})
 
 const dialogVisible = ref(false)
 const isEditing = ref(false)
@@ -39,26 +33,7 @@ const rules = {
 
 const formRef = ref(null)
 
-const provinces = [
-  { value: '广东省', label: '广东省', children: [
-    { value: '广州市', label: '广州市', children: [
-      { value: '天河区', label: '天河区' }, { value: '越秀区', label: '越秀区' }, { value: '海珠区', label: '海珠区' },
-    ]},
-    { value: '深圳市', label: '深圳市', children: [
-      { value: '南山区', label: '南山区' }, { value: '福田区', label: '福田区' }, { value: '罗湖区', label: '罗湖区' },
-    ]},
-  ]},
-  { value: '北京市', label: '北京市', children: [
-    { value: '北京市', label: '北京市', children: [
-      { value: '朝阳区', label: '朝阳区' }, { value: '海淀区', label: '海淀区' }, { value: '东城区', label: '东城区' },
-    ]},
-  ]},
-  { value: '上海市', label: '上海市', children: [
-    { value: '上海市', label: '上海市', children: [
-      { value: '浦东新区', label: '浦东新区' }, { value: '徐汇区', label: '徐汇区' }, { value: '静安区', label: '静安区' },
-    ]},
-  ]},
-]
+const provinces = chinaRegions
 
 const cascaderValue = ref([])
 
@@ -102,39 +77,30 @@ const handleSave = async () => {
     return
   }
 
-  if (!userId.value) {
-    ElMessage.error('请先登录')
-    return
-  }
-
   const data = { ...form.value }
-  try {
-    if (isEditing.value) {
-      await addressStore.updateAddress(editingId.value, data)
-      ElMessage.success('修改成功')
-    } else {
-      await addressStore.addAddress(userId.value, data)
-      ElMessage.success('新增成功')
-    }
-    dialogVisible.value = false
-  } catch (e) {
-    ElMessage.error(e.message || '操作失败')
+  if (isEditing.value) {
+    addressStore.updateAddress(editingId.value, data)
+    ElMessage.success('修改成功')
+  } else {
+    addressStore.addAddress(data)
+    ElMessage.success('新增成功')
   }
+  dialogVisible.value = false
 }
 
 const handleDelete = (addr) => {
   ElMessageBox.confirm(
-    `确定要删除「${addr.receiverName || addr.name}」的收货地址吗？`,
+    `确定要删除「${addr.name}」的收货地址吗？`,
     '删除确认',
     { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-  ).then(async () => {
-    await addressStore.deleteAddress(addr.id)
+  ).then(() => {
+    addressStore.deleteAddress(addr.id)
     ElMessage.success('已删除')
   }).catch(() => {})
 }
 
-const handleSetDefault = async (id) => {
-  await addressStore.setDefault(id)
+const handleSetDefault = (id) => {
+  addressStore.setDefault(id)
   ElMessage.success('已设为默认')
 }
 
@@ -163,7 +129,7 @@ const maskPhone = (phone) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
     <div v-for="addr in addressStore.addresses" :key="addr.id" class="address-card" :class="{ 'address-card--default': addr.isDefault }">
       <div class="address-card__header">
         <div class="address-card__user">
-          <span class="address-card__name">{{ addr.receiverName || addr.name }}</span>
+          <span class="address-card__name">{{ addr.name }}</span>
           <span class="address-card__phone">{{ maskPhone(addr.phone) }}</span>
           <span v-if="addr.isDefault" class="address-card__badge">默认</span>
         </div>

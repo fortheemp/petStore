@@ -42,9 +42,11 @@ public class AdminController {
                           @RequestParam("address") String address,
                           @RequestParam("longitude") Double lng,
                           @RequestParam("latitude") Double lat,
-                          @RequestParam(value = "image", required = false) MultipartFile image) {
+                          @RequestParam(value = "image", required = false) MultipartFile image,
+                          @RequestParam(value = "phone", required = false) String phone,
+                          @RequestParam(value = "businessHours", required = false) String businessHours) {
         String imageUrl = fileService.uploadImage(image);
-        Shop shop = shopService.addShop(name, address, lng, lat, imageUrl);
+        Shop shop = shopService.addShop(name, address, lng, lat, imageUrl, phone, businessHours);
         return Result.success(shop);
     }
 
@@ -54,12 +56,14 @@ public class AdminController {
                              @RequestParam("address") String address,
                              @RequestParam("longitude") Double lng,
                              @RequestParam("latitude") Double lat,
-                             @RequestParam(value = "image", required = false) MultipartFile image) {
+                             @RequestParam(value = "image", required = false) MultipartFile image,
+                             @RequestParam(value = "phone", required = false) String phone,
+                             @RequestParam(value = "businessHours", required = false) String businessHours) {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
             imageUrl = fileService.uploadImage(image);
         }
-        Shop shop = shopService.updateShop(id, name, address, lng, lat, imageUrl);
+        Shop shop = shopService.updateShop(id, name, address, lng, lat, imageUrl, phone, businessHours);
         return Result.success(shop);
     }
 
@@ -118,19 +122,25 @@ public class AdminController {
 
     @GetMapping("/videos")
     public Result listVideos() {
-        return Result.success(videoService.listAll());
+        return Result.success(videoService.listAllWithProducts());
     }
 
     @PostMapping("/videos")
     public Result addVideo(@RequestParam("title") String title,
                            @RequestParam(value = "file", required = false) MultipartFile file,
                            @RequestParam(value = "url", required = false) String url,
-                           @RequestParam(value = "productId", required = false) Long productId) {
+                           @RequestParam(value = "productId", required = false) Long productId,
+                           @RequestParam(value = "duration", required = false) String duration,
+                           @RequestParam(value = "durationSeconds", required = false) Integer durationSeconds,
+                           @RequestParam(value = "author", required = false) String author,
+                           @RequestParam(value = "description", required = false) String description,
+                           @RequestParam(value = "category", required = false) String category) {
         String videoUrl = url;
         if (file != null && !file.isEmpty()) {
             videoUrl = fileService.uploadVideo(file);
         }
-        Video video = videoService.add(title, videoUrl, productId);
+        Video video = videoService.add(title, videoUrl, productId,
+                duration, durationSeconds, author, description, category);
         return Result.success(video);
     }
 
@@ -138,8 +148,14 @@ public class AdminController {
     public Result updateVideo(@PathVariable Long id,
                               @RequestParam(value = "title", required = false) String title,
                               @RequestParam(value = "url", required = false) String url,
-                              @RequestParam(value = "productId", required = false) Long productId) {
-        Video video = videoService.update(id, title, url, productId);
+                              @RequestParam(value = "productId", required = false) Long productId,
+                              @RequestParam(value = "duration", required = false) String duration,
+                              @RequestParam(value = "durationSeconds", required = false) Integer durationSeconds,
+                              @RequestParam(value = "author", required = false) String author,
+                              @RequestParam(value = "description", required = false) String description,
+                              @RequestParam(value = "category", required = false) String category) {
+        Video video = videoService.update(id, title, url, productId,
+                duration, durationSeconds, author, description, category);
         return Result.success(video);
     }
 

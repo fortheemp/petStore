@@ -1,168 +1,85 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { get, post, put, del, postForm, putForm } from '@/api'
+import { getAdminProducts, deleteAdminProduct as apiDeleteProduct } from '@/api/admin'
+import { getAdminOrders, shipOrder as apiShipOrder, approveRefund as apiApproveRefund } from '@/api/admin'
+import { getAdminUsers } from '@/api/admin'
+import { getAdminVideos, deleteAdminVideo as apiDeleteVideo } from '@/api/admin'
 
 export const useAdminStore = defineStore('admin', () => {
-  // ===== 状态 =====
   const products = ref([])
   const orders = ref([])
   const users = ref([])
-  const shops = ref([])
   const videos = ref([])
-  const loading = ref(false)
-  const loaded = ref(false)
 
-  // ===== 计算属性 =====
   const totalProducts = computed(() => products.value.length)
   const totalUsers = computed(() => users.value.length)
   const totalOrders = computed(() => orders.value.length)
   const pendingOrders = computed(() => orders.value.filter((o) => o.status === 0).length)
-  const todaySales = computed(() => {
-    return orders.value
-      .filter((o) => o.status !== -1 && o.status !== -2)
-      .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0)
-  })
+  const todaySales = computed(() =>
+    orders.value.filter((o) => o.status !== -1 && o.status !== -2).reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0)
+  )
 
-  // ===== 商品管理 =====
-  const fetchProducts = async () => {
-    const res = await get('/admin/products')
-    if (res.data.code === 200) products.value = res.data.data || []
-    return res.data
-  }
-
-  const addProduct = async (fd) => {
-    const res = await postForm('/admin/products', fd)
-    if (res.data.code === 200) await fetchProducts()
-    return res.data
-  }
-
-  const updateProduct = async (id, fd) => {
-    const res = await putForm(`/admin/products/${id}`, fd)
-    if (res.data.code === 200) await fetchProducts()
-    return res.data
-  }
-
-  const deleteProduct = async (id) => {
-    const res = await del(`/admin/products/${id}`)
-    if (res.data.code === 200) {
-      products.value = products.value.filter((p) => p.id !== id)
-    }
-    return res.data
-  }
-
-  // ===== 商店管理 =====
-  const fetchShops = async () => {
-    const res = await get('/admin/shops')
-    if (res.data.code === 200) shops.value = res.data.data || []
-    return res.data
-  }
-
-  // ===== 订单管理 =====
-  const fetchOrders = async (status) => {
-    const params = status !== undefined && status !== '' ? { status } : {}
-    const res = await get('/admin/orders', params)
-    if (res.data.code === 200) orders.value = res.data.data || []
-    return res.data
-  }
-
-  const shipOrder = async (orderId) => {
-    const res = await post(`/admin/orders/${orderId}/ship`)
-    if (res.data.code === 200) {
-      const order = orders.value.find((o) => o.id === orderId)
-      if (order) order.status = 2
-    }
-    return res.data
-  }
-
-  const approveRefund = async (orderId) => {
-    const res = await post(`/admin/orders/${orderId}/approve-refund`, { approved: true })
-    if (res.data.code === 200) {
-      const order = orders.value.find((o) => o.id === orderId)
-      if (order) order.status = -3
-    }
-    return res.data
-  }
-
-  const rejectRefund = async (orderId) => {
-    const res = await post(`/admin/orders/${orderId}/approve-refund`, { approved: false })
-    if (res.data.code === 200) {
-      const order = orders.value.find((o) => o.id === orderId)
-      if (order) order.status = 2
-    }
-    return res.data
-  }
-
-  // ===== 用户管理 =====
-  const fetchUsers = async () => {
-    const res = await get('/admin/users')
-    if (res.data.code === 200) users.value = res.data.data || []
-    return res.data
-  }
-
-  const deleteUser = async (id) => {
-    const res = await del(`/admin/users/${id}`)
-    if (res.data.code === 200) {
-      users.value = users.value.filter((u) => u.id !== id)
-    }
-    return res.data
-  }
-
-  // ===== 视频管理 =====
-  const fetchVideos = async () => {
-    const res = await get('/admin/videos')
-    if (res.data.code === 200) videos.value = res.data.data || []
-    return res.data
-  }
-
-  const addVideo = async (fd) => {
-    const res = await postForm('/admin/videos', fd)
-    if (res.data.code === 200) await fetchVideos()
-    return res.data
-  }
-
-  const updateVideo = async (id, data) => {
-    // 后端使用 @RequestParam，必须用 FormData 或 query params
-    const fd = data instanceof FormData ? data : new FormData()
-    if (!(data instanceof FormData)) {
-      if (data.title !== undefined) fd.append('title', data.title)
-      if (data.url !== undefined) fd.append('url', data.url || '')
-      if (data.productId !== undefined) fd.append('productId', data.productId)
-    }
-    const res = await putForm(`/admin/videos/${id}`, fd)
-    if (res.data.code === 200) await fetchVideos()
-    return res.data
-  }
-
-  const deleteVideo = async (id) => {
-    const res = await del(`/admin/videos/${id}`)
-    if (res.data.code === 200) {
-      videos.value = videos.value.filter((v) => v.id !== id)
-    }
-    return res.data
-  }
-
-  // ===== 全部加载 =====
-  const loadAll = async () => {
-    if (loaded.value) return
-    loading.value = true
+  async function loadProducts() {
     try {
-      await Promise.all([fetchProducts(), fetchOrders(), fetchUsers(), fetchShops(), fetchVideos()])
-      loaded.value = true
-    } finally {
-      loading.value = false
-    }
+      const res = await getAdminProducts()
+      products.value = Array.isArray(res) ? res : []
+    } catch { products.value = [] }
   }
+
+  async function loadOrders() {
+    try {
+      const res = await getAdminOrders()
+      orders.value = Array.isArray(res) ? res : []
+    } catch { orders.value = [] }
+  }
+
+  async function loadUsers() {
+    try {
+      const res = await getAdminUsers()
+      users.value = Array.isArray(res) ? res : []
+    } catch { users.value = [] }
+  }
+
+  async function loadVideos() {
+    try {
+      const res = await getAdminVideos()
+      videos.value = Array.isArray(res) ? res : []
+    } catch { videos.value = [] }
+  }
+
+  async function loadAll() {
+    await Promise.all([loadProducts(), loadOrders(), loadUsers(), loadVideos()])
+  }
+
+  async function deleteProduct(id) {
+    try { await apiDeleteProduct(id); await loadProducts() } catch {}
+  }
+
+  async function deleteVideo(id) {
+    try { await apiDeleteVideo(id); await loadVideos() } catch {}
+  }
+
+  async function shipOrderAction(orderId) {
+    try { await apiShipOrder(orderId); await loadOrders() } catch {}
+  }
+
+  async function approveRefundAction(orderId) {
+    try { await apiApproveRefund(orderId, true); await loadOrders() } catch {}
+  }
+
+  async function rejectRefundAction(orderId) {
+    try { await apiApproveRefund(orderId, false); await loadOrders() } catch {}
+  }
+
+  async function init() {
+    await loadAll()
+  }
+
+  init()
 
   return {
-    products, orders, users, shops, videos, loading, loaded,
-    totalProducts, totalUsers, totalOrders, pendingOrders, todaySales,
-    fetchProducts, addProduct, updateProduct, deleteProduct,
-    fetchShops,
-    fetchOrders, shipOrder, approveRefund, rejectRefund,
-    fetchUsers, deleteUser,
-    fetchVideos, addVideo, updateVideo, deleteVideo,
-    loadAll,
+    products, orders, users, videos, totalProducts, totalUsers, totalOrders, pendingOrders, todaySales,
+    loadProducts, loadOrders, loadUsers, loadVideos, loadAll, deleteProduct, deleteVideo,
+    shipOrder: shipOrderAction, approveRefund: approveRefundAction, rejectRefund: rejectRefundAction,
   }
 })
-
-

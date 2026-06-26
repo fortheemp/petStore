@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue'
+
 const props = defineProps({
   id: { type: Number, required: true },
   name: { type: String, required: true },
@@ -13,6 +15,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['add-to-cart'])
+
+const added = ref(false)
+
+const handleAddToCart = () => {
+  added.value = true
+  emit('add-to-cart', props.id)
+  setTimeout(() => { added.value = false }, 1200)
+}
 
 // 生成星星数组（满星/半星/空星）
 const stars = (() => {
@@ -32,12 +42,7 @@ const discount = (() => {
   <router-link :to="`/products/${id}`" class="product-card">
     <!-- 商品图片 -->
     <div class="product-card__image-wrapper">
-      <img
-        v-if="image"
-        :src="image"
-        :alt="name"
-        class="product-card__image"
-      />
+      <img v-if="image" :src="image" :alt="name" class="product-card__image" />
       <div v-else class="product-card__image-placeholder">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -68,7 +73,7 @@ const discount = (() => {
           <span v-if="stars.half">☆</span>
           <span v-for="i in stars.empty" :key="'e'+i" class="star-empty">★</span>
         </span>
-        <span class="rating-value">{{ rating }}</span>
+        <span class="rating-value">{{ Number(rating).toFixed(1) }}</span>
         <span class="review-count">({{ reviewCount }})</span>
       </div>
 
@@ -81,9 +86,21 @@ const discount = (() => {
       </div>
 
       <!-- 加入购物车 -->
-      <button class="product-card__cart-btn" @click.prevent="emit('add-to-cart', id)">
-        <el-icon><ShoppingCart /></el-icon>
-        加入购物车
+      <button
+        class="product-card__cart-btn"
+        :class="{ 'product-card__cart-btn--added': added }"
+        @click.prevent="handleAddToCart"
+      >
+        <template v-if="!added">
+          <el-icon><ShoppingCart /></el-icon>
+          加入购物车
+        </template>
+        <template v-else>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          已加入
+        </template>
       </button>
     </div>
   </router-link>
@@ -114,14 +131,6 @@ const discount = (() => {
   background-color: #f8f9fa;
 }
 
-.product-card__image {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 0.8rem;
-  display: block;
-}
-
 .product-card__image-placeholder {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -129,7 +138,14 @@ const discount = (() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.8rem;
-  background-color: #ffffff;
+  background: linear-gradient(135deg, #e8edf5 0%, #d5dce8 100%);
+}
+
+.product-card__image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 0.8rem;
 }
 
 .product-card__badge {
@@ -275,5 +291,10 @@ const discount = (() => {
 
 .product-card__cart-btn:active {
   transform: scale(0.98);
+}
+
+.product-card__cart-btn--added {
+  background-color: #00a651;
+  pointer-events: none;
 }
 </style>

@@ -2,49 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
-import { useUserStore } from '@/stores/user'
-import { get, post } from '@/api'
 
 const router = useRouter()
 const orderStore = useOrderStore()
-const user = useUserStore()
 
-// 从后端加载订单列表
-onMounted(async () => {
-  const userId = user.userInfo?.id
-  if (!userId) return
-  try {
-    const res = await get('/orders', { userId })
-    if (res.data.code === 200) {
-      const backendOrders = res.data.data || []
-      // 将后端订单合并到本地 store
-      backendOrders.forEach((bo) => {
-        const exists = orderStore.orders.find((o) => o.id === 'ORD' + bo.id)
-        if (!exists) {
-          orderStore.orders.unshift({
-            id: 'ORD' + bo.id,
-            orderNo: 'PET' + bo.id + '01',
-            status: bo.status,
-            items: (bo.items || []).map((oi) => ({
-              productId: oi.productId,
-              name: oi.productName || oi.name || '商品',
-              price: Number(oi.price) || 0,
-              quantity: oi.quantity || 1,
-              spec: '标准款',
-            })),
-            totalAmount: Number(bo.totalAmount) || 0,
-            shippingFee: 0,
-            payAmount: Number(bo.totalAmount) || 0,
-            createTime: bo.createdAt,
-            payTime: null,
-          })
-        }
-      })
-      orderStore._save()
-    }
-  } catch (e) {
-    console.error('加载订单失败', e)
-  }
+onMounted(() => {
+  orderStore.loadOrders()
 })
 
 const activeStatus = ref(null)
@@ -64,52 +27,26 @@ const statusClass = (status) => {
   return map[String(status)] || ''
 }
 
-const handlePay = async (orderId) => {
-  try {
-    const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
-    const res = await post(`/orders/${realId}/pay`)
-    if (res.data.code === 200) {
-      orderStore.payOrder(orderId)
-      ElMessage.success('支付成功')
-    } else {
-      ElMessage.error(res.data.message || '支付失败')
-    }
-  } catch {
-    ElMessage.error('支付失败，请检查网络')
-  }
+const handlePay = (orderId) => {
+  orderStore.payOrder(orderId)
+  ElMessage.success('支付成功（Mock）')
 }
 
 const handleCancel = (orderId) => {
   ElMessageBox.confirm('确定取消订单吗？', '提示', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
-  }).then(async () => {
-    try {
-      const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
-      const res = await post(`/orders/${realId}/cancel`, { reason: '用户取消' })
-      if (res.data.code === 200) {
-        orderStore.cancelOrder(orderId)
-        ElMessage.success('订单已取消')
-      } else {
-        ElMessage.error(res.data.message || '取消失败')
-      }
-    } catch { ElMessage.error('操作失败') }
+  }).then(() => {
+    orderStore.cancelOrder(orderId)
+    ElMessage.success('订单已取消')
   }).catch(() => {})
 }
 
 const handleConfirm = (orderId) => {
   ElMessageBox.confirm('确认已收到商品？', '确认收货', {
     confirmButtonText: '确认', cancelButtonText: '取消',
-  }).then(async () => {
-    try {
-      const realId = orderId.startsWith('ORD') ? Number(orderId.replace('ORD', '')) : Number(orderId)
-      const res = await post(`/orders/${realId}/confirm`)
-      if (res.data.code === 200) {
-        orderStore.confirmReceive(orderId)
-        ElMessage.success('已确认收货')
-      } else {
-        ElMessage.error(res.data.message || '操作失败')
-      }
-    } catch { ElMessage.error('操作失败') }
+  }).then(() => {
+    orderStore.confirmReceive(orderId)
+    ElMessage.success('已确认收货')
   }).catch(() => {})
 }
 
@@ -166,7 +103,8 @@ const formatDate = (iso) => {
         <div class="order-card__body">
           <div v-for="item in order.items" :key="item.productId" class="order-card__item">
             <div class="order-card__image">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+              <img v-if="item.image" :src="item.image" :alt="item.name" />
+              <svg v-else width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
@@ -174,17 +112,17 @@ const formatDate = (iso) => {
             </div>
             <div class="order-card__info">
               <p class="order-card__name">{{ item.name }}</p>
-              <p class="order-card__spec">规格：{{ item.spec }}</p>
+              <p v-if="item.spec" class="order-card__spec">规格：{{ item.spec }}</p>
             </div>
-            <div class="order-card__price">¥{{ item.price.toFixed(2) }}</div>
+            <div class="order-card__price">¥{{ (Number(item.price) || 0).toFixed(2) }}</div>
             <div class="order-card__qty">x{{ item.quantity }}</div>
           </div>
         </div>
 
         <div class="order-card__footer">
           <div class="order-card__total">
-            共{{ order.items.reduce((s, i) => s + i.quantity, 0) }}件，实付：
-            <span class="order-card__amount">¥{{ order.payAmount.toFixed(2) }}</span>
+            共{{ (order.items || []).reduce((s, i) => s + (i.quantity || 0), 0) }}件，实付：
+            <span class="order-card__amount">¥{{ (Number(order.payAmount) || 0).toFixed(2) }}</span>
           </div>
           <div class="order-card__actions">
             <button v-if="order.status === 0" class="btn btn--outline" @click="handleCancel(order.id)">取消订单</button>
@@ -219,7 +157,7 @@ const formatDate = (iso) => {
   display: flex;
   gap: 0;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 1.2rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   margin-bottom: 2.4rem;
   overflow: hidden;
@@ -244,7 +182,7 @@ const formatDate = (iso) => {
   text-align: center;
   padding: 8rem 2.4rem;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 1.2rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .orders-empty p { margin-top: 2rem; color: #999; font-size: 1.6rem; }
@@ -252,10 +190,16 @@ const formatDate = (iso) => {
 /* ========== 订单卡片 ========== */
 .order-card {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 1.2rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   margin-bottom: 2.4rem;
   overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.order-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
 }
 
 .order-card__header {
@@ -296,6 +240,13 @@ const formatDate = (iso) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.order-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .order-card__info { flex: 1; min-width: 0; }

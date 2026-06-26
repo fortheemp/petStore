@@ -8,7 +8,16 @@ const route = useRoute()
 const router = useRouter()
 const orderStore = useOrderStore()
 
-const order = computed(() => orderStore.getOrderById(route.params.id))
+const order = ref(null)
+
+onMounted(async () => {
+  const id = route.params.id
+  order.value = await orderStore.getOrderDetailById(id)
+  if (route.query.review === '1' && order.value?.status === 3 && !order.value?.reviewed) {
+    initReviewForm()
+    showReviewForm.value = true
+  }
+})
 
 // 评价相关
 const showReviewForm = ref(false)
@@ -62,7 +71,7 @@ const submitReview = async () => {
 
 const loadExistingReviews = () => {
   if (!order.value) return
-  existingReviews.value = orderStore.getOrderReviews(order.value.id)
+  existingReviews.value = order.value.reviews || []
 }
 
 const formatDate = (iso) => {
@@ -82,14 +91,6 @@ const currentStepIndex = computed(() => {
   if (!order.value) return -1
   if (order.value.status === -1) return -1
   return steps.findIndex((s) => s.status === order.value.status)
-})
-
-onMounted(() => {
-  loadExistingReviews()
-  if (route.query.review === '1' && order.value?.status === 3 && !order.value?.reviewed) {
-    initReviewForm()
-    showReviewForm.value = true
-  }
 })
 </script>
 
@@ -154,7 +155,8 @@ onMounted(() => {
           <div class="detail-items">
             <div v-for="item in order.items" :key="item.productId" class="detail-item">
               <div class="detail-item__image">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+                <img v-if="item.image" :src="item.image" :alt="item.name" />
+                <svg v-else width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
@@ -424,6 +426,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.detail-item__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .detail-item__info { flex: 1; min-width: 0; }

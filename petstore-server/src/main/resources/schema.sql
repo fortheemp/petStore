@@ -109,3 +109,18 @@ CREATE TABLE IF NOT EXISTS reviews (
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+-- ===== ALTER TABLE 增量迁移 =====
+-- ALTER TABLE reviews ADD COLUMN product_id INTEGER;
+-- ALTER TABLE products ADD COLUMN avg_rating REAL DEFAULT 0;
+-- ALTER TABLE products ADD COLUMN review_count INTEGER DEFAULT 0;
+-- ALTER TABLE shops ADD COLUMN status VARCHAR(10) DEFAULT 'open';
+-- ALTER TABLE shops ADD COLUMN rating REAL DEFAULT 0;
+-- ALTER TABLE shops ADD COLUMN review_count INTEGER DEFAULT 0;
+-- ALTER TABLE shops ADD COLUMN phone VARCHAR(20);
+-- ALTER TABLE shops ADD COLUMN business_hours VARCHAR(50);
+-- ALTER TABLE videos ADD COLUMN duration VARCHAR(10);
+-- ALTER TABLE videos ADD COLUMN duration_seconds INTEGER;
+-- ALTER TABLE videos ADD COLUMN view_count INTEGER DEFAULT 0;
+-- ALTER TABLE videos ADD COLUMN author VARCHAR(50);
+-- ALTER TABLE videos ADD COLUMN description TEXT;
+-- ALTER TABLE videos ADD COLUMN category VARCHAR(20);

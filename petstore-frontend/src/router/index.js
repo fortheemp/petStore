@@ -91,6 +91,12 @@ const routes = [
         component: () => import('@/views/order/OrderDetail.vue'),
         meta: { title: '订单详情' },
       },
+      {
+        path: 'favorites',
+        name: 'UserFavorites',
+        component: () => import('@/views/user/UserFavorites.vue'),
+        meta: { title: '我的收藏' },
+      },
     ],
   },
   {

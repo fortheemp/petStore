@@ -38,3 +38,11 @@ INSERT OR IGNORE INTO products (id, shop_id, name, type, stock, price, descripti
 -- 收货地址
 INSERT OR IGNORE INTO addresses (id, user_id, receiver_name, phone, province, city, district, detail, is_default) VALUES (1, 2, '小明', '13800138000', '北京市', '北京市', '朝阳区', '建国路88号', 1);
 INSERT OR IGNORE INTO addresses (id, user_id, receiver_name, phone, province, city, district, detail, is_default) VALUES (2, 2, '小明', '13900139000', '上海市', '上海市', '浦东新区', '张江高科技园区', 0);
+-- ===== 更新种子数据（新字段默认值）=====
+UPDATE videos SET duration='00:10', duration_seconds=10, view_count=0, author='PetStore', category='cats' WHERE id=1 AND category IS NULL;
+UPDATE videos SET duration='00:10', duration_seconds=10, view_count=0, author='PetStore', category='dogs' WHERE id=2 AND category IS NULL;
+UPDATE videos SET duration='00:10', duration_seconds=10, view_count=0, author='PetStore', category='funny' WHERE id=3 AND category IS NULL;
+UPDATE shops SET status='open', rating=4.5, review_count=0, phone='010-88886666', business_hours='09:00-21:00' WHERE id=1 AND phone IS NULL;
+UPDATE shops SET status='open', rating=4.2, review_count=0, phone='010-66668888', business_hours='10:00-22:00' WHERE id=2 AND phone IS NULL;
+UPDATE shops SET status='open', rating=4.8, review_count=0, phone='021-99995555', business_hours='08:30-21:30' WHERE id=3 AND phone IS NULL;
+

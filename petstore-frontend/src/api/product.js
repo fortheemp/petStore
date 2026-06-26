@@ -1,13 +1,13 @@
-// ===== 商品 API（调用真实后端） =====
-import { get } from '@/api'
+import { get } from './request'
+import { getShopById } from './shop'
 
-// 商品大类映射（宠物 vs 宠物周边）
+// ========== UI 元数据（非 mock，前端专用） ==========
+
 export const productTypeMap = {
   pet: { label: '宠物' },
   supply: { label: '宠物周边' },
 }
 
-// 商品分类映射（按动物类型细分）
 export const categoryMap = {
   dogs: { label: '狗狗' },
   cats: { label: '猫咪' },
@@ -16,7 +16,6 @@ export const categoryMap = {
   small: { label: '小宠' },
 }
 
-// 子分类
 export const subcategoriesMap = {
   dogs: ['粮食', '零食', '玩具', '项圈', '清洁', '窝垫'],
   cats: ['猫粮', '猫砂', '猫玩具', '猫抓板', '猫罐头', '猫窝'],
@@ -25,7 +24,13 @@ export const subcategoriesMap = {
   small: ['兔粮', '仓鼠笼', '跑轮', '垫料', '喂食器', '水壶'],
 }
 
-export const supplySubcategoriesMap = subcategoriesMap
+export const supplySubcategoriesMap = {
+  dogs: ['狗粮', '狗零食', '狗玩具', '项圈牵引', '清洁护理', '狗窝垫'],
+  cats: ['猫粮', '猫砂', '猫玩具', '猫抓板', '猫罐头', '猫窝'],
+  fish: ['鱼粮', '鱼缸', '过滤器', '加热棒', '造景', '药水'],
+  birds: ['鸟粮', '鸟笼', '鸟玩具', '站杆', '沙浴', '保暖'],
+  small: ['兔粮', '仓鼠笼', '跑轮', '垫料', '喂食器', '水壶'],
+}
 
 export const brandsMap = {
   dogs: ['皇家', '冠能', '渴望', '比瑞吉', '伯纳天纯'],
@@ -49,70 +54,136 @@ export const ratingOptions = [
   { label: '3.5星及以上', min: 3.5 },
 ]
 
-// ===== 内部缓存 =====
-let cachedShops = null
-let cachedProducts = null
+// ========== 后端数据适配 ==========
 
-async function loadShops() {
-  if (cachedShops) return cachedShops
-  try {
-    const res = await get('/shops')
-    if (res.data.code === 200) cachedShops = res.data.data || []
-  } catch { cachedShops = [] }
-  return cachedShops
+function deriveCategory(name) {
+  if (!name) return 'dogs'
+  if (/猫|暹罗|布偶|英短/.test(name)) return 'cats'
+  if (/鱼|水族|龙鱼/.test(name)) return 'fish'
+  if (/鸟|鹦鹉|画眉|金丝雀/.test(name)) return 'birds'
+  if (/兔|仓鼠|龙猫|荷兰猪/.test(name)) return 'small'
+  return 'dogs'
 }
 
-async function loadProducts() {
-  if (cachedProducts) return cachedProducts
-  try {
-    const res = await get('/products')
-    if (res.data.code === 200) cachedProducts = res.data.data || []
-  } catch { cachedProducts = [] }
-  return cachedProducts
-}
-
-// 从商品名称推断动物分类
-function inferCategory(name) {
-  if (!name) return ''
-  const n = name.toLowerCase()
-  if (/猫|猫咪|暹罗|布偶|英短|美短|橘猫|加菲/.test(n)) return 'cats'
-  if (/狗|犬|金毛|泰迪|柯基|哈士奇|拉布拉多|柴犬|边牧/.test(n)) return 'dogs'
-  if (/鱼|水族|龙鱼|热带鱼|金鱼|锦鲤/.test(n)) return 'fish'
-  if (/鸟|鹦鹉|画眉|金丝雀|文鸟|百灵/.test(n)) return 'birds'
-  if (/仓鼠|兔|龙猫|荷兰猪|松鼠|刺猬/.test(n)) return 'small'
-  return ''
-}
-
-// 后端 Product → 前端形状
-async function transformProduct(p) {
-  const shops = await loadShops()
-  const shop = shops.find((s) => s.id === p.shopId)
-  const category = inferCategory(p.name)
+function adaptProduct(p) {
+  const category = deriveCategory(p.name)
   return {
     id: p.id,
     name: p.name,
     image: p.image || '',
     price: Number(p.price) || 0,
     originalPrice: null,
-    rating: Math.round((4.0 + Math.random() * 1.0) * 10) / 10,
+    rating: 4 + Math.random(),
     reviewCount: Math.floor(Math.random() * 500) + 10,
     shopId: p.shopId,
-    shopName: shop ? shop.name : '未知商店',
-    fastDelivery: p.type === 'accessory',
+    shopName: '',
+    fastDelivery: true,
     category,
     productType: p.type === 'pet' ? 'pet' : 'supply',
     stock: p.stock,
-    type: p.type,
-    description: p.description || '',
-    videoId: p.videoId,
   }
 }
 
-// 为商品详情生成默认扩展数据
-function buildDefaultDetail(product) {
+// ========== API 函数 ==========
+
+let _cachedProducts = null
+
+async function fetchAllProducts() {
+  if (!_cachedProducts) {
+    const res = await get('/products')
+    const list = Array.isArray(res) ? res : []
+    _cachedProducts = list.map(adaptProduct)
+  }
+  return _cachedProducts
+}
+
+export function invalidateProductCache() {
+  _cachedProducts = null
+}
+
+export function getProducts(params = {}) {
+  const {
+    page = 1,
+    pageSize = 12,
+    category = '',
+    productType = '',
+    shopId = '',
+    keyword = '',
+    sort = 'default',
+    priceRange = '',
+    rating = '',
+  } = params
+
+  return fetchAllProducts().then((all) => {
+    let filtered = [...all]
+
+    if (keyword) {
+      const kw = keyword.toLowerCase()
+      filtered = filtered.filter((p) => p.name.toLowerCase().includes(kw))
+    }
+    if (productType) {
+      filtered = filtered.filter((p) => p.productType === productType)
+    }
+    if (category) {
+      filtered = filtered.filter((p) => p.category === category)
+    }
+    if (shopId) {
+      filtered = filtered.filter((p) => p.shopId === Number(shopId))
+    }
+    if (priceRange) {
+      const range = priceRanges.find((r) => r.label === priceRange)
+      if (range) {
+        filtered = filtered.filter((p) => p.price >= range.min && p.price < range.max)
+      }
+    }
+    if (rating) {
+      const opt = ratingOptions.find((r) => r.label === rating)
+      if (opt) {
+        filtered = filtered.filter((p) => p.rating >= opt.min)
+      }
+    }
+
+    switch (sort) {
+      case 'price-asc':
+        filtered.sort((a, b) => a.price - b.price)
+        break
+      case 'price-desc':
+        filtered.sort((a, b) => b.price - a.price)
+        break
+      case 'rating':
+        filtered.sort((a, b) => b.rating - a.rating)
+        break
+      default:
+        filtered.sort((a, b) => b.rating * b.reviewCount - a.rating * a.reviewCount)
+    }
+
+    const total = filtered.length
+    const start = (page - 1) * pageSize
+    const list = filtered.slice(start, start + pageSize)
+    return { list, total, page, pageSize }
+  })
+}
+
+export async function getProductById(id) {
+  const res = await get(`/products/${id}`)
+  if (!res) return null
+  const product = adaptProduct(res)
+
+  let shopName = ''
+  if (res.shopId) {
+    try {
+      const shop = await getShopById(res.shopId)
+      shopName = shop?.name || ''
+    } catch {}
+  }
+
+  const images = [res.image].filter(Boolean)
+
   return {
-    images: [product.image || '', product.image || '', product.image || '', product.image || ''],
-    stock: product.stock,
+    ...product,
+    shopName,
+    images,
+    stock: res.stock,
     specs: [
       {
         id: 1,
@@ -122,120 +193,34 @@ function buildDefaultDetail(product) {
         ],
       },
     ],
-    description: product.description
-      ? `<h3>产品介绍</h3><p>${product.description}</p>`
-      : '<h3>产品介绍</h3><p>详情请咨询客服。</p>',
+    description: res.description
+      ? `<h3>产品介绍</h3><p>${res.description}</p>`
+      : `<h3>产品介绍</h3><p>${res.name}，品质保证。</p>`,
     specsTable: [
-      { label: '品牌', value: product.shopName },
-      { label: '适用对象', value: categoryMap[product.category]?.label || '通用' },
-      { label: '库存', value: product.stock + ' 件' },
+      { label: '商品名称', value: res.name },
+      { label: '商品类型', value: res.type === 'pet' ? '活体宠物' : '宠物用品' },
+      { label: '库存', value: `${res.stock} 件` },
+      { label: '价格', value: `¥${res.price}` },
     ],
-    reviews: [
-      { id: 1, username: '宠物爱好者', rating: 5, content: '质量不错，很满意！', createTime: '2026-06-15' },
-      { id: 2, username: '爱宠达人', rating: 4, content: '性价比很高，推荐购买。', createTime: '2026-06-10' },
-    ],
+    reviews: [],
     relatedIds: [],
   }
 }
 
-// ===== 对外 API =====
-
-/**
- * 获取商品列表（从后端数据库 + 字段转换）
- */
-export async function getProducts(params = {}) {
-  const {
-    page = 1,
-    pageSize = 12,
-    category = '',
-    productType = '',
-    shopId = '',
-    keyword = '',
-    sort = 'default',
-  } = params
-
-  const all = await loadProducts()
-  let filtered = await Promise.all(all.map(transformProduct))
-
-  // 关键词搜索
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    filtered = filtered.filter((p) => p.name.toLowerCase().includes(kw))
-  }
-
-  // 大类筛选
-  if (productType) {
-    filtered = filtered.filter((p) => p.productType === productType)
-  }
-
-  // 分类筛选
-  if (category) {
-    filtered = filtered.filter((p) => p.category === category)
-  }
-
-  // 商店筛选
-  if (shopId) {
-    filtered = filtered.filter((p) => p.shopId === Number(shopId))
-  }
-
-  // 排序
-  switch (sort) {
-    case 'price-asc':
-      filtered.sort((a, b) => a.price - b.price)
-      break
-    case 'price-desc':
-      filtered.sort((a, b) => b.price - a.price)
-      break
-    case 'rating':
-      filtered.sort((a, b) => b.rating - a.rating)
-      break
-    default:
-      filtered.sort((a, b) => b.rating * b.reviewCount - a.rating * a.reviewCount)
-  }
-
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const list = filtered.slice(start, start + pageSize)
-
-  return { list, total, page, pageSize }
-}
-
-/**
- * 获取商品详情（从后端 API）
- */
-export async function getProductById(id) {
-  try {
-    const res = await get(`/products/${id}`)
-    if (res.data.code !== 200 || !res.data.data) return null
-
-    const product = await transformProduct(res.data.data)
-    const detail = buildDefaultDetail(product)
-    return { ...product, ...detail }
-  } catch {
-    return null
-  }
-}
-
-/**
- * 获取相关商品
- */
 export async function getRelatedProducts(ids = []) {
-  const all = await loadProducts()
-  const transformed = await Promise.all(
-    all.filter((p) => ids.includes(p.id)).map(transformProduct),
-  )
-  return transformed
+  if (!ids.length) return []
+  const all = await fetchAllProducts()
+  return ids.map((id) => all.find((p) => p.id === id)).filter(Boolean).slice(0, 4)
 }
 
-/**
- * 获取各分类商品数量
- */
-export function getCategoryCounts() {
-  return { _all: 0, _pet: 0, _supply: 0, dogs: 0, cats: 0, fish: 0, birds: 0, small: 0 }
-}
-
-/** 强制刷新缓存（管理后台操作后调用） */
-export function clearProductCache() {
-  cachedProducts = null
-  cachedShops = null
+export async function getCategoryCounts() {
+  const all = await fetchAllProducts()
+  const counts = {}
+  for (const key of Object.keys(categoryMap)) {
+    counts[key] = all.filter((p) => p.category === key).length
+  }
+  counts._pet = all.filter((p) => p.productType === 'pet').length
+  counts._supply = all.filter((p) => p.productType === 'supply').length
+  counts._all = all.length
+  return counts
 }

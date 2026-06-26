@@ -1,30 +1,57 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllShops } from '@/api/shop'
+import { getShopList } from '@/api/shop'
+import { getAddressList } from '@/api/address'
+import { useUserStore } from '@/stores/user'
 import AMapLoader from '@amap/amap-jsapi-loader'
 
 const router = useRouter()
+const userStore = useUserStore()
 
-const districts = [
-  { key: 'jimei', label: '集美区', center: [118.080, 24.600], zoom: 13 },
-  { key: 'siming', label: '思明区', center: [118.082, 24.445], zoom: 13 },
-  { key: 'huli', label: '湖里区', center: [118.110, 24.510], zoom: 13 },
-  { key: 'haicang', label: '海沧区', center: [117.998, 24.485], zoom: 13 },
-  { key: 'tongan', label: '同安区', center: [118.158, 24.730], zoom: 13 },
-]
-
-const currentDistrict = ref('jimei')
 const shops = ref([])
-const loadingShops = ref(true)
+const nearbyPois = ref([])
+const mapCenter = ref([116.397, 39.908]) // 跟踪地图中心点
+
+const loadShops = async () => {
+  try {
+    const res = await getShopList()
+    const list = Array.isArray(res) ? res : []
+    shops.value = list.map((s) => ({
+      ...s,
+      lng: s.lng ?? s.longitude,
+      lat: s.lat ?? s.latitude,
+    }))
+  } catch {
+    shops.value = []
+  }
+}
 const selectedShop = ref(null)
 const searchKeyword = ref('')
 
+// Haversine 公式计算两点距离（km）
+const getDistance = (lng1, lat1, lng2, lat2) => {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 const filteredShops = computed(() => {
-  let list = shops.value.filter((s) => s.district === currentDistrict.value)
+  // POI结果直接显示（高德搜索已按位置过滤）
+  // 后端商店只在距离地图中心50km内才显示
+  const nearbyBackend = shops.value.filter((s) => {
+    if (!s.lng || !s.lat) return false
+    return getDistance(mapCenter.value[0], mapCenter.value[1], s.lng, s.lat) <= 50
+  })
+  let list = [...nearbyBackend, ...nearbyPois.value]
   if (searchKeyword.value) {
     const kw = searchKeyword.value
-    list = list.filter((s) => s.name.includes(kw) || s.address.includes(kw))
+    list = list.filter((s) => s.name.includes(kw) || s.address?.includes(kw))
   }
   return list
 })
@@ -48,18 +75,16 @@ const renderStars = (rating) => {
   return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - full - half)
 }
 
-const switchDistrict = (key) => {
-  currentDistrict.value = key
-  selectedShop.value = null
-  searchKeyword.value = ''
-  const d = districts.find((item) => item.key === key)
-  if (map && d) {
-    map.setCenter(d.center)
-    map.setZoom(d.zoom)
+const locateMe = () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.info('请先登录')
+    return
   }
+  locateByAddress()
 }
 
 // AMap
+let AMapLib = null
 let map = null
 let markers = []
 let infoWindow = null
@@ -73,7 +98,7 @@ function clearMarkers() {
 function addMarkers(list) {
   if (!map) return
   list.forEach((shop) => {
-    const marker = new AMap.Marker({
+    const marker = new AMapLib.Marker({
       position: [shop.lng, shop.lat],
       title: shop.name,
       extData: shop,
@@ -99,25 +124,91 @@ const initMap = async () => {
       securityJsCode: '14895041b0729be0b72daa42d8c6fc15',
     }
 
-    const AMap = await AMapLoader.load({
+    AMapLib = await AMapLoader.load({
       key: 'e6579887e28a5e152a6353a57a61e8fe',
       version: '2.0',
-      plugins: ['AMap.InfoWindow'],
+      plugins: ['AMap.InfoWindow', 'AMap.Geocoder', 'AMap.PlaceSearch'],
     })
 
-    const d = districts.find((item) => item.key === currentDistrict.value)
-    map = new AMap.Map(mapContainer.value, {
-      zoom: d.zoom,
-      center: d.center,
+    map = new AMapLib.Map(mapContainer.value, {
+      zoom: 12,
+      center: [116.397, 39.908],
       resizeEnable: true,
     })
 
-    infoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -30) })
+    infoWindow = new AMapLib.InfoWindow({ offset: new AMapLib.Pixel(0, -30) })
+
+    map.on('moveend', () => {
+      const c = map.getCenter()
+      mapCenter.value = [c.lng, c.lat]
+    })
 
     addMarkers(filteredShops.value)
+
+    // 尝试根据默认收货地址定位
+    locateByAddress()
   } catch (e) {
     console.error('AMap load failed:', e)
   }
+}
+
+const locateByAddress = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const userId = userStore.userInfo?.id
+    if (!userId) return
+    const res = await getAddressList(userId)
+    const list = Array.isArray(res) ? res : []
+    const addr = list.find((a) => a.isDefault === 1) || list[0]
+    if (!addr) return
+
+    const fullAddr = [addr.province, addr.city, addr.district, addr.detail].filter(Boolean).join('')
+
+    nearbyPois.value = []
+
+    const geocoder = new AMapLib.Geocoder()
+    geocoder.getLocation(fullAddr, (status, result) => {
+      if (status === 'complete' && result.geocodes?.length) {
+        const loc = result.geocodes[0].location
+        map.setCenter([loc.lng, loc.lat])
+        map.setZoom(14)
+        searchNearbyPetShops(loc.lng, loc.lat)
+      }
+    })
+  } catch {
+    // 静默失败，保持默认定位
+  }
+}
+
+const searchNearbyPetShops = (lng, lat) => {
+  if (!AMapLib) {
+    setTimeout(() => searchNearbyPetShops(lng, lat), 500)
+    return
+  }
+  mapCenter.value = [lng, lat]
+  const placeSearch = new AMapLib.PlaceSearch({
+    pageSize: 20,
+    pageIndex: 1,
+    extensions: 'all',
+  })
+  const center = new AMapLib.LngLat(lng, lat)
+  placeSearch.searchNearBy('宠物', center, 5000, (status, result) => {
+    if (status === 'complete' && result.poiList?.pois) {
+      nearbyPois.value = result.poiList.pois.map((poi) => ({
+        id: `poi_${poi.id}`,
+        name: poi.name,
+        address: poi.address || poi.cityname + poi.adname,
+        lng: poi.location?.lng,
+        lat: poi.location?.lat,
+        phone: poi.tel,
+        rating: null,
+        reviewCount: null,
+        status: 'open',
+        businessHours: null,
+        _isPoi: true,
+      }))
+    }
+  })
 }
 
 watch(selectedShop, (shop) => {
@@ -142,10 +233,9 @@ watch(filteredShops, (list) => {
   addMarkers(list)
 })
 
-onMounted(async () => {
-  shops.value = await getAllShops()
-  loadingShops.value = false
-  await nextTick(() => initMap())
+onMounted(() => {
+  loadShops()
+  nextTick(() => initMap())
 })
 
 onBeforeUnmount(() => {
@@ -161,16 +251,19 @@ onBeforeUnmount(() => {
     <div class="nearby-shops-page__container">
       <h1 class="nearby-shops-page__title">附近宠物商店</h1>
 
-      <!-- 地区切换 -->
-      <div class="district-selector">
-        <button
-          v-for="d in districts"
-          :key="d.key"
-          class="district-btn"
-          :class="{ 'district-btn--active': currentDistrict === d.key }"
-          @click="switchDistrict(d.key)"
-        >
-          {{ d.label }}
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <input
+          v-model="searchKeyword"
+          class="shop-list__search"
+          placeholder="搜索商店名称或地址..."
+        />
+        <button class="district-btn district-btn--locate" @click="locateMe">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:-2px;">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+          定位到我的地址
         </button>
       </div>
 
@@ -182,13 +275,6 @@ onBeforeUnmount(() => {
 
         <!-- Shop List -->
         <div class="shop-list">
-          <div class="shop-list__header">
-            <input
-              v-model="searchKeyword"
-              class="shop-list__search"
-              placeholder="搜索商店名称或地址..."
-            />
-          </div>
           <div class="shop-list__count">
             找到 {{ filteredShops.length }} 家商店
           </div>
@@ -203,17 +289,23 @@ onBeforeUnmount(() => {
               <div class="shop-card__header">
                 <span class="shop-card__name">{{ shop.name }}</span>
                 <span
+                  v-if="shop._isPoi"
+                  class="shop-card__status shop-card__status--open"
+                >附近推荐</span>
+                <span
+                  v-else
                   class="shop-card__status"
                   :class="shop.status === 'open' ? 'shop-card__status--open' : 'shop-card__status--closed'"
                 >
                   {{ shop.status === 'open' ? '营业中' : '已打烊' }}
                 </span>
               </div>
-              <div class="shop-card__rating">
+              <div v-if="shop.rating" class="shop-card__rating">
                 <span class="stars">{{ renderStars(shop.rating) }}</span>
                 <span class="score">{{ shop.rating }}</span>
                 <span class="count">({{ shop.reviewCount }}条评价)</span>
               </div>
+              <div v-if="shop.phone" class="shop-card__phone">{{ shop.phone }}</div>
               <div class="shop-card__address">{{ shop.address }}</div>
             </div>
           </div>
@@ -287,12 +379,27 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
 }
 
-/* District Selector */
-.district-selector {
+/* Search Bar */
+.search-bar {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-bar .shop-list__search {
+  flex: 1;
+  height: 44px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-bar .shop-list__search:focus {
+  border-color: #1c49c2;
 }
 
 .district-btn {
@@ -311,9 +418,14 @@ onBeforeUnmount(() => {
   color: #1c49c2;
 }
 
-.district-btn--active {
-  background: #1c49c2;
+.district-btn--locate {
+  margin-left: auto;
   border-color: #1c49c2;
+  color: #1c49c2;
+}
+
+.district-btn--locate:hover {
+  background: #1c49c2;
   color: #fff;
 }
 
@@ -346,26 +458,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.shop-list__header {
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.shop-list__search {
-  width: 100%;
-  height: 40px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 0 16px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.shop-list__search:focus {
-  border-color: #1c49c2;
 }
 
 .shop-list__count {
@@ -461,6 +553,12 @@ onBeforeUnmount(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.shop-card__phone {
+  font-size: 13px;
+  color: #1c49c2;
+  margin-bottom: 4px;
 }
 
 /* Shop Detail */
