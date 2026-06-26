@@ -17,4 +17,6 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
             "+ sin(radians(:lat)) * sin(radians(latitude)))) AS distance " +
             "FROM shops ORDER BY distance", nativeQuery = true)
     List<Shop> findNearbyShops(@Param("lat") Double lat, @Param("lng") Double lng);
+
+    List<Shop> findByAddressContaining(String district);
 }

@@ -14,11 +14,11 @@ public class VideoController {
 
     @GetMapping
     public Result list() {
-        return Result.success(videoService.listAll());
+        return Result.success(videoService.listAllWithProducts());
     }
 
     @GetMapping("/{id}")
     public Result detail(@PathVariable Long id) {
-        return Result.success(videoService.getById(id));
+        return Result.success(videoService.getByIdWithProduct(id));
     }
 }

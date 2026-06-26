@@ -33,8 +33,17 @@ public class Product {
 
     private String description;
 
+    @Column(name = "avg_rating")
+    private Double avgRating = 0.0;
+
+    @Column(name = "review_count")
+    private Integer reviewCount = 0;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Transient
+    private String shopName;
 
     public enum ProductType {
         pet, accessory
@@ -60,6 +69,12 @@ public class Product {
     public void setVideoId(Long videoId) { this.videoId = videoId; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public Double getAvgRating() { return avgRating; }
+    public void setAvgRating(Double avgRating) { this.avgRating = avgRating; }
+    public Integer getReviewCount() { return reviewCount; }
+    public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
+    public String getShopName() { return shopName; }
+    public void setShopName(String shopName) { this.shopName = shopName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

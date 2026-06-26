@@ -25,24 +25,37 @@ public class ShopService {
                 .orElseThrow(() -> new RuntimeException("商店不存在"));
     }
 
-    public Shop addShop(String name, String address, Double lng, Double lat, String image) {
+    public Shop addShop(String name, String address, Double lng, Double lat, String image,
+                        String phone, String businessHours) {
         Shop shop = new Shop();
         shop.setName(name);
         shop.setAddress(address);
         shop.setLongitude(lng);
         shop.setLatitude(lat);
         shop.setImage(image);
+        shop.setPhone(phone);
+        shop.setBusinessHours(businessHours);
         return shopRepository.save(shop);
     }
 
-    public Shop updateShop(Long id, String name, String address, Double lng, Double lat, String image) {
+    public Shop updateShop(Long id, String name, String address, Double lng, Double lat, String image,
+                           String phone, String businessHours) {
         Shop shop = getById(id);
         if (name != null) shop.setName(name);
         if (address != null) shop.setAddress(address);
         if (lng != null) shop.setLongitude(lng);
         if (lat != null) shop.setLatitude(lat);
         if (image != null) shop.setImage(image);
+        if (phone != null) shop.setPhone(phone);
+        if (businessHours != null) shop.setBusinessHours(businessHours);
         return shopRepository.save(shop);
+    }
+
+    public List<Shop> searchByDistrict(String district) {
+        if (district == null || district.trim().isEmpty()) {
+            return shopRepository.findAll();
+        }
+        return shopRepository.findByAddressContaining(district);
     }
 
     public void delete(Long id) {

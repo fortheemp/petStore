@@ -19,6 +19,9 @@ public class Review {
     private String content;
     private Integer rating;
 
+    @Column(name = "product_id")
+    private Long productId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -34,6 +37,8 @@ public class Review {
     public void setContent(String content) { this.content = content; }
     public Integer getRating() { return rating; }
     public void setRating(Integer rating) { this.rating = rating; }
+    public Long getProductId() { return productId; }
+    public void setProductId(Long productId) { this.productId = productId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
