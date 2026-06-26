@@ -1,12 +1,31 @@
 import { get } from './request'
 
+let _productCache = null
+
+async function getProductById(id) {
+  if (!_productCache) {
+    const list = await get('/products')
+    _productCache = Array.isArray(list) ? list : []
+  }
+  return _productCache.find((p) => p.id === id) || null
+}
+
 export const getVideoList = (category) => {
-  return get('/videos').then((list) => {
-    const arr = Array.isArray(list) ? list : []
+  return get('/videos').then(async (list) => {
+    let arr = Array.isArray(list) ? list : []
     if (category && category !== 'all') {
-      return arr.filter((v) => v.category === category)
+      arr = arr.filter((v) => v.category === category)
     }
-    return arr
+    const enriched = await Promise.all(arr.map(async (v) => {
+      if (v.productId) {
+        const product = await getProductById(v.productId)
+        if (product) {
+          v.relatedProduct = { id: product.id, name: product.name, price: Number(product.price) || 0, image: product.image || '' }
+        }
+      }
+      return v
+    }))
+    return enriched
   })
 }
 

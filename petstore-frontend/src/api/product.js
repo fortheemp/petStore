@@ -81,6 +81,7 @@ function adaptProduct(p) {
     category,
     productType: p.type === 'pet' ? 'pet' : 'supply',
     stock: p.stock,
+    videoId: p.videoId || null,
   }
 }
 
@@ -179,10 +180,19 @@ export async function getProductById(id) {
 
   const images = [res.image].filter(Boolean)
 
+  let videoUrl = null
+  if (res.videoId) {
+    try {
+      const video = await get(`/videos/${res.videoId}`)
+      videoUrl = video?.url || null
+    } catch {}
+  }
+
   return {
     ...product,
     shopName,
     images,
+    videoUrl,
     stock: res.stock,
     specs: [
       {

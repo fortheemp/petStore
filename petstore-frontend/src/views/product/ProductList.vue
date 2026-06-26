@@ -7,9 +7,11 @@ import {
 } from '@/api/product'
 import { getShopById } from '@/api/shop'
 import ProductCard from '@/components/common/ProductCard.vue'
+import { useCartStore } from '@/stores/cart'
 
 const route = useRoute()
 const router = useRouter()
+const cartStore = useCartStore()
 
 // 子分类对应 SVG 图标
 const animalIcons = {
@@ -178,7 +180,11 @@ const updateQuery = () => {
 
 // 加入购物车
 const handleAddToCart = (id) => {
-  ElMessage.success('已加入购物车')
+  const product = products.value.find((p) => p.id === id)
+  if (product) {
+    cartStore.addToCart(product, 1, { id: 'default', name: '默认', value: '默认规格' })
+    ElMessage.success('已加入购物车')
+  }
 }
 
 // 主分类点击（侧边栏动物分类）
