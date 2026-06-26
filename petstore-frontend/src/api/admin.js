@@ -16,3 +16,9 @@ export const directRefund = (id, reason) => post(`/admin/orders/${id}/direct-ref
 // Users
 export const getAdminUsers = () => get('/admin/users')
 export const deleteAdminUser = (id) => del(`/admin/users/${id}`)
+
+// Videos
+export const getAdminVideos = () => get('/admin/videos')
+export const createAdminVideo = (formData) => post('/admin/videos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const updateAdminVideo = (id, formData) => put(`/admin/videos/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const deleteAdminVideo = (id) => del(`/admin/videos/${id}`)
