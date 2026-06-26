@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrderStore } from '@/stores/order'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const orderStore = useOrderStore()
@@ -25,7 +26,7 @@ const statusTabs = [
 const filteredOrders = computed(() => orderStore.getOrdersByStatus(activeStatus.value))
 
 const statusClass = (status) => {
-  const map = { '-1': 'cancelled', '0': 'pending', '1': 'paid', '2': 'shipped', '3': 'completed' }
+  const map = { '-4': 'refund', '-3': 'refund-done', '-2': 'refund-pending', '-1': 'cancelled', '0': 'pending', '1': 'paid', '2': 'shipped', '3': 'completed' }
   return map[String(status)] || ''
 }
 
@@ -55,6 +56,28 @@ const handleConfirm = (orderId) => {
 const goDetail = (orderId) => router.push(`/user/orders/${orderId}`)
 
 const goReview = (orderId) => router.push(`/user/orders/${orderId}?review=1`)
+
+const showRefundDialog = ref(false)
+const refundTarget = ref(null)
+const refundReason = ref('')
+
+const openRefundDialog = (order) => {
+  refundTarget.value = order
+  refundReason.value = ''
+  showRefundDialog.value = true
+}
+
+const submitRefund = async () => {
+  if (!refundTarget.value) return
+  try {
+    await orderStore.applyRefund(refundTarget.value.id, refundReason.value)
+    showRefundDialog.value = false
+    refundTarget.value = null
+    ElMessage.success('退单申请已提交')
+  } catch (e) {
+    ElMessage.error('退单申请失败：' + (e.message || '未知错误'))
+  }
+}
 
 const formatDate = (iso) => {
   if (!iso) return ''
@@ -136,6 +159,15 @@ const formatDate = (iso) => {
           </div>
         </div>
 
+        <!-- 退单原因/状态 -->
+        <div v-if="order.status === -2 || order.status === -3 || order.status === -4" class="order-card__refund-info">
+          <span class="order-card__refund-label">退单原因：</span>
+          <span class="order-card__refund-reason">{{ order.refundReason || '未填写' }}</span>
+        </div>
+        <div v-if="(order.status === 2 || order.status === 3) && order.refundReason" class="order-card__refund-rejected">
+          退单被拒绝：{{ order.refundReason }}
+        </div>
+
         <div class="order-card__footer">
           <div class="order-card__total">
             共{{ (order.items || []).reduce((s, i) => s + (i.quantity || 0), 0) }}件，实付：
@@ -144,11 +176,30 @@ const formatDate = (iso) => {
           <div class="order-card__actions">
             <button v-if="order.status === 0" class="btn btn--outline" @click="handleCancel(order.id)">取消订单</button>
             <button v-if="order.status === 0" class="btn btn--primary" @click="handlePay(order.id)">去付款</button>
+            <button v-if="order.status === 2 || order.status === 3" class="btn btn--refund" @click="openRefundDialog(order)">申请退单</button>
             <button v-if="order.status === 2" class="btn btn--primary" @click="handleConfirm(order.id)">确认收货</button>
             <button v-if="order.status === 3 && !order.reviewed" class="btn btn--review" @click="goReview(order.id)">写评价</button>
             <span v-if="order.status === 3 && order.reviewed" class="order-card__reviewed">已评价</span>
             <button class="btn btn--outline" @click="goDetail(order.id)">查看详情</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 退单原因弹窗 -->
+    <div v-if="showRefundDialog" class="dialog-mask" @click.self="showRefundDialog = false">
+      <div class="dialog">
+        <h3 class="dialog__title">申请退单</h3>
+        <p class="dialog__hint">请填写退单原因，提交后等待管理员审核。</p>
+        <textarea
+          v-model="refundReason"
+          class="dialog__textarea"
+          placeholder="请输入退单原因（可不填）"
+          rows="4"
+        ></textarea>
+        <div class="dialog__actions">
+          <button class="dialog__btn dialog__btn--cancel" @click="showRefundDialog = false">取消</button>
+          <button class="dialog__btn dialog__btn--confirm" @click="submitRefund">提交申请</button>
         </div>
       </div>
     </div>
@@ -371,6 +422,29 @@ const formatDate = (iso) => {
 .btn--outline:hover { border-color: #999; color: #121212; }
 .btn--review { background: #ff6c10; color: #fff; border: none; }
 .btn--review:hover { background: #e55a00; }
+.btn--refund { background: #fff; color: #e74c3c; border: 1px solid #e74c3c; }
+.btn--refund:hover { background: #fff0f0; }
+
+.order-card__refund-info {
+  padding: 1.2rem 2.4rem;
+  background: #fff8f8;
+  border-top: 1px solid #fde8e8;
+  font-size: 1.3rem;
+}
+.order-card__refund-label { color: #999; }
+.order-card__refund-reason { color: #e74c3c; font-weight: 500; }
+
+.order-card__refund-rejected {
+  padding: 1rem 2.4rem;
+  background: #fff3f0;
+  border-top: 1px solid #fde0d8;
+  font-size: 1.3rem;
+  color: #e74c3c;
+}
+
+.order-card__status.refund-pending { color: #e74c3c; }
+.order-card__status.refund-done { color: #00a651; }
+.order-card__status.refund { color: #e74c3c; }
 
 .order-card__reviewed {
   font-size: 1.3rem;
@@ -385,4 +459,72 @@ const formatDate = (iso) => {
   .order-card__header { flex-wrap: wrap; gap: 0.8rem; }
   .order-card__footer { flex-direction: column; gap: 1.2rem; align-items: flex-end; }
 }
+
+/* ========== 弹窗 ========== */
+.dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2.8rem;
+  width: 42rem;
+  max-width: 90vw;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.dialog__title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #121212;
+  margin-bottom: 0.8rem;
+}
+
+.dialog__hint {
+  font-size: 1.3rem;
+  color: #999;
+  margin-bottom: 1.6rem;
+}
+
+.dialog__textarea {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.2rem;
+  font-size: 1.4rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.dialog__textarea:focus { border-color: #ff6c10; }
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.2rem;
+  margin-top: 2rem;
+}
+
+.dialog__btn {
+  padding: 0.8rem 2.4rem;
+  border-radius: 6px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+.dialog__btn--cancel { background: #f5f5f5; color: #666; }
+.dialog__btn--cancel:hover { background: #eee; }
+.dialog__btn--confirm { background: #e74c3c; color: #fff; }
+.dialog__btn--confirm:hover { background: #c0392b; }
 </style>

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { createOrder as apiCreateOrder, getOrderList, getOrderDetail, payOrder as apiPayOrder, cancelOrder as apiCancelOrder, confirmOrder as apiConfirmOrder, reviewOrder as apiReviewOrder } from '@/api/order'
+import { createOrder as apiCreateOrder, getOrderList, getOrderDetail, payOrder as apiPayOrder, cancelOrder as apiCancelOrder, confirmOrder as apiConfirmOrder, reviewOrder as apiReviewOrder, refundOrder as apiRefundOrder } from '@/api/order'
 import { useUserStore } from './user'
 
 const statusMap = {
@@ -73,6 +73,16 @@ export const useOrderStore = defineStore('order', () => {
     try { await apiCancelOrder(orderId, { reason }); await loadOrders() } catch {}
   }
 
+  async function applyRefundAction(orderId, reason) {
+    try {
+      await apiRefundOrder(orderId, { reason })
+      await loadOrders()
+    } catch (e) {
+      console.error('applyRefund failed:', e)
+      throw e
+    }
+  }
+
   async function confirmReceive(orderId) {
     try { await apiConfirmOrder(orderId); await loadOrders() } catch {}
   }
@@ -130,7 +140,7 @@ export const useOrderStore = defineStore('order', () => {
 
   return {
     orders, loadOrders, createOrder, payOrder: payOrderAction, cancelOrder: cancelOrderAction,
-    confirmReceive, submitReview, getOrderDetailById,
+    confirmReceive, submitReview, applyRefund: applyRefundAction, getOrderDetailById,
     getOrdersByStatus, getOrderById, getStatusText,
   }
 })

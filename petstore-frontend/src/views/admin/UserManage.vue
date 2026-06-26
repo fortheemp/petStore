@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAdminStore } from '@/stores/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const admin = useAdminStore()
 
@@ -23,6 +24,17 @@ const pagedUsers = computed(() => {
 
 const handleSearch = () => {
   currentPage.value = 1
+}
+
+const handleDelete = (user) => {
+  ElMessageBox.confirm(
+    `确认删除用户「${user.nickname || user.username}」？此操作不可恢复。`,
+    '删除确认',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' },
+  ).then(async () => {
+    await admin.deleteUser(user.id)
+    ElMessage.success('用户已删除')
+  }).catch(() => {})
 }
 
 const roleLabel = (role) => {
@@ -78,6 +90,16 @@ const formatTime = (t) => {
         </el-table-column>
         <el-table-column label="注册时间">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <button
+              v-if="row.role !== 'admin'"
+              class="action-btn action-btn--danger"
+              @click="handleDelete(row)"
+            >删除</button>
+            <span v-else class="no-action">-</span>
+          </template>
         </el-table-column>
       </el-table>
     </div>
@@ -138,4 +160,23 @@ const formatTime = (t) => {
   justify-content: center;
   margin-top: 24px;
 }
+
+.action-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #ddd;
+  background: #fff;
+  white-space: nowrap;
+}
+
+.action-btn--danger {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+.action-btn--danger:hover { background: #fff0f0; }
+
+.no-action { color: #999; }
 </style>

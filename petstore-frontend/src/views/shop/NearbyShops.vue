@@ -319,6 +319,13 @@ onBeforeUnmount(() => {
               </div>
               <div v-if="shop.phone" class="shop-card__phone">{{ shop.phone }}</div>
               <div class="shop-card__address">{{ shop.address }}</div>
+              <div class="shop-card__actions">
+                <button class="shop-card__nav-btn" @click.stop="handleNavigate(shop)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+                  导航
+                </button>
+                <button class="shop-card__product-btn" @click.stop="handleViewProducts(shop.id)">查看商品</button>
+              </div>
             </div>
           </div>
         </div>
@@ -604,6 +611,35 @@ onBeforeUnmount(() => {
   color: #1c49c2;
   margin-bottom: 4px;
 }
+
+.shop-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.shop-card__nav-btn,
+.shop-card__product-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.shop-card__nav-btn {
+  background: #e6f0ff;
+  color: #1c49c2;
+}
+.shop-card__nav-btn:hover { background: #1c49c2; color: #fff; }
+
+.shop-card__product-btn {
+  background: #fff5ee;
+  color: #ff6c10;
+}
+.shop-card__product-btn:hover { background: #ff6c10; color: #fff; }
 
 /* Shop Detail */
 .shop-detail {

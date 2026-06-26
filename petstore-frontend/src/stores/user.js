@@ -22,7 +22,14 @@ export const useUserStore = defineStore('user', () => {
   const login = async (loginData) => {
     try {
       const res = await apiLogin({ username: loginData.username, password: loginData.password })
+      if (!res || !res.id) {
+        return { success: false, message: '用户名或密码错误' }
+      }
       const user = res
+      // 保留之前已保存的头像等本地字段
+      if (userInfo.value && userInfo.value.id === user.id && userInfo.value.avatar) {
+        user.avatar = user.avatar || userInfo.value.avatar
+      }
       const mockToken = 'token_' + user.id + '_' + Date.now()
       token.value = mockToken
       userInfo.value = user
