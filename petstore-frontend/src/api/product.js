@@ -65,6 +65,13 @@ function deriveCategory(name) {
   return 'dogs'
 }
 
+function deriveBrand(name, category) {
+  if (!name) return ''
+  const cats = brandsMap[category]
+  if (!cats) return ''
+  return cats.find((b) => name.includes(b)) || ''
+}
+
 function adaptProduct(p) {
   const category = deriveCategory(p.name)
   return {
@@ -79,6 +86,7 @@ function adaptProduct(p) {
     shopName: p.shopName || '',
     fastDelivery: true,
     category,
+    brand: deriveBrand(p.name, category),
     productType: p.type === 'pet' ? 'pet' : 'supply',
     stock: p.stock,
     videoId: p.videoId || null,
@@ -89,7 +97,7 @@ function adaptProduct(p) {
 
 let _cachedProducts = null
 
-async function fetchAllProducts() {
+export async function fetchAllProducts() {
   if (!_cachedProducts) {
     const res = await get('/products')
     const list = Array.isArray(res) ? res : []
@@ -110,6 +118,7 @@ export function getProducts(params = {}) {
     productType = '',
     shopId = '',
     keyword = '',
+    brand = '',
     sort = 'default',
     priceRange = '',
     rating = '',
@@ -120,13 +129,20 @@ export function getProducts(params = {}) {
 
     if (keyword) {
       const kw = keyword.toLowerCase()
-      filtered = filtered.filter((p) => p.name.toLowerCase().includes(kw))
+      filtered = filtered.filter((p) =>
+        p.name.toLowerCase().includes(kw) ||
+        (categoryMap[p.category]?.label || '').includes(kw) ||
+        (p.shopName || '').toLowerCase().includes(kw)
+      )
     }
     if (productType) {
       filtered = filtered.filter((p) => p.productType === productType)
     }
     if (category) {
       filtered = filtered.filter((p) => p.category === category)
+    }
+    if (brand) {
+      filtered = filtered.filter((p) => p.brand === brand)
     }
     if (shopId) {
       filtered = filtered.filter((p) => p.shopId === Number(shopId))
@@ -188,6 +204,12 @@ export async function getProductById(id) {
     } catch {}
   }
 
+  let reviews = []
+  try {
+    const reviewRes = await get(`/products/${id}/reviews`)
+    reviews = Array.isArray(reviewRes) ? reviewRes : []
+  } catch {}
+
   return {
     ...product,
     shopName,
@@ -212,7 +234,7 @@ export async function getProductById(id) {
       { label: '库存', value: `${res.stock} 件` },
       { label: '价格', value: `¥${res.price}` },
     ],
-    reviews: [],
+    reviews,
     relatedIds: [],
   }
 }

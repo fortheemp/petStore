@@ -8,6 +8,15 @@ const route = useRoute()
 const router = useRouter()
 const cart = useCartStore()
 
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const product = ref(null)
 const loading = ref(true)
 const activeImageIndex = ref(0)
@@ -338,11 +347,12 @@ onMounted(fetchProduct)
                 </div>
                 <div v-for="review in product.reviews" :key="review.id" class="review-item">
                   <div class="review-item__header">
+                    <span class="review-item__avatar">{{ (review.username || '').charAt(0) }}</span>
                     <span class="review-item__user">{{ review.username }}</span>
                     <span class="review-item__stars">
                       <svg v-for="i in review.rating" :key="i" width="14" height="14" viewBox="0 0 24 24" fill="#ffc107" stroke="#ffc107" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </span>
-                    <span class="review-item__date">{{ review.createTime }}</span>
+                    <span class="review-item__date">{{ formatDate(review.createdAt) }}</span>
                   </div>
                   <p class="review-item__content">{{ review.content }}</p>
                 </div>
@@ -913,6 +923,19 @@ onMounted(fetchProduct)
   align-items: center;
   gap: 1.2rem;
   margin-bottom: 0.8rem;
+}
+.review-item__avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: var(--color-brand-blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 .review-item__user { font-size: 1.4rem; font-weight: 600; color: #333; }
 .review-item__stars { display: flex; gap: 2px; }

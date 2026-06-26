@@ -2,13 +2,17 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCategoryCounts, getProducts } from '@/api/product'
-import { getShopList } from '@/api/shop'
+import { getAddressList } from '@/api/address'
+import { useUserStore } from '@/stores/user'
+import AMapLoader from '@amap/amap-jsapi-loader'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const categoryCounts = ref({ _all: 0, dogs: 0, cats: 0, fish: 0, birds: 0, small: 0 })
 const hotProducts = ref([])
 const shops = ref([])
+const loading = ref(true)
 
 const petCategories = ref([
   { name: '狗狗', key: 'dogs', productType: 'pet', color: '#ff6c10' },
@@ -17,6 +21,58 @@ const petCategories = ref([
   { name: '鸟类', key: 'birds', productType: 'supply', color: '#00a651' },
   { name: '小宠', key: 'small', productType: 'supply', color: '#e67e22' },
 ])
+
+const loadNearbyShops = async (lng, lat) => {
+  try {
+    window._AMapSecurityConfig = { securityJsCode: '14895041b0729be0b72daa42d8c6fc15' }
+    const AMap = await AMapLoader.load({
+      key: 'e6579887e28a5e152a6353a57a61e8fe',
+      version: '2.0',
+      plugins: ['AMap.PlaceSearch'],
+    })
+    const placeSearch = new AMap.PlaceSearch({ pageSize: 3, pageIndex: 1, extensions: 'all' })
+    const center = new AMap.LngLat(lng, lat)
+    placeSearch.searchNearBy('宠物', center, 5000, (status, result) => {
+      if (status === 'complete' && result.poiList?.pois) {
+        shops.value = result.poiList.pois.map((poi) => ({
+          id: `poi_${poi.id}`,
+          name: poi.name,
+          address: poi.address || poi.cityname + poi.adname,
+          lng: poi.location?.lng,
+          lat: poi.location?.lat,
+          phone: poi.tel,
+        }))
+      }
+    })
+  } catch {}
+}
+
+const locateAndLoadShops = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const userId = userStore.userInfo?.id
+    if (!userId) return
+    const res = await getAddressList(userId)
+    const list = Array.isArray(res) ? res : []
+    const addr = list.find((a) => a.isDefault === 1) || list[0]
+    if (!addr) return
+    const fullAddr = [addr.province, addr.city, addr.district, addr.detail].filter(Boolean).join('')
+
+    window._AMapSecurityConfig = { securityJsCode: '14895041b0729be0b72daa42d8c6fc15' }
+    const AMap = await AMapLoader.load({
+      key: 'e6579887e28a5e152a6353a57a61e8fe',
+      version: '2.0',
+      plugins: ['AMap.Geocoder'],
+    })
+    const geocoder = new AMap.Geocoder()
+    geocoder.getLocation(fullAddr, (status, result) => {
+      if (status === 'complete' && result.geocodes?.length) {
+        const loc = result.geocodes[0].location
+        loadNearbyShops(loc.lng, loc.lat)
+      }
+    })
+  } catch {}
+}
 
 onMounted(async () => {
   try {
@@ -29,11 +85,9 @@ onMounted(async () => {
     hotProducts.value = res.list || []
   } catch {}
 
-  try {
-    const res = await getShopList()
-    const list = Array.isArray(res) ? res : []
-    shops.value = list.slice(0, 3)
-  } catch {}
+  locateAndLoadShops()
+
+  loading.value = false
 })
 
 const goToProducts = () => router.push('/products')
@@ -163,7 +217,15 @@ const formatPrice = (p) => Number(p).toFixed(0)
           <h2 class="section-title">热门推荐</h2>
           <router-link to="/products" class="section-link">查看全部 →</router-link>
         </div>
-        <div class="products-grid">
+        <!-- 骨架屏 -->
+        <div v-if="loading" class="products-grid">
+          <div v-for="i in 4" :key="i" class="skeleton-home-card">
+            <div class="skeleton-home-card__img"></div>
+            <div class="skeleton-home-card__title"></div>
+            <div class="skeleton-home-card__line"></div>
+          </div>
+        </div>
+        <div v-else class="products-grid">
           <div
             v-for="product in hotProducts"
             :key="product.id"
@@ -206,8 +268,7 @@ const formatPrice = (p) => Number(p).toFixed(0)
             @click="goToShops"
           >
             <div class="shop-card__image">
-              <img v-if="shop.image" :src="shop.image" :alt="shop.name" />
-              <div v-else class="shop-card__placeholder">
+              <div class="shop-card__placeholder">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
               </div>
             </div>
@@ -270,6 +331,50 @@ const formatPrice = (p) => Number(p).toFixed(0)
 </template>
 
 <style scoped>
+/* 骨架屏 */
+.skeleton-home-card {
+  background: #fff;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  padding: 1.6rem;
+}
+
+.skeleton-home-card__img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f0f0f0;
+  border-radius: 0.8rem;
+  margin-bottom: 1.2rem;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-home-card__img--shop {
+  aspect-ratio: 16 / 9;
+}
+
+.skeleton-home-card__title {
+  height: 1.6rem;
+  width: 70%;
+  background: #f0f0f0;
+  border-radius: 4px;
+  margin-bottom: 0.8rem;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-home-card__line {
+  height: 1.2rem;
+  width: 50%;
+  background: #f0f0f0;
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* ========== Hero 区块 ========== */
 .hero {
   background: linear-gradient(135deg, #eef2ff 0%, #fff5eb 50%, #f0f7ff 100%);
@@ -477,6 +582,11 @@ const formatPrice = (p) => Number(p).toFixed(0)
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
   border-color: var(--color-brand-blue);
+}
+
+.category-card:active {
+  transform: translateY(-2px) scale(0.97);
+  box-shadow: var(--shadow-sm);
 }
 
 .category-card__icon {

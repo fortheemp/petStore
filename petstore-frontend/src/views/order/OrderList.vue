@@ -5,9 +5,11 @@ import { useOrderStore } from '@/stores/order'
 
 const router = useRouter()
 const orderStore = useOrderStore()
+const loading = ref(true)
 
-onMounted(() => {
-  orderStore.loadOrders()
+onMounted(async () => {
+  await orderStore.loadOrders()
+  loading.value = false
 })
 
 const activeStatus = ref(null)
@@ -79,8 +81,23 @@ const formatDate = (iso) => {
         </button>
       </div>
 
+      <!-- 骨架屏 -->
+      <div v-if="loading" class="orders-skeleton">
+        <div v-for="i in 3" :key="i" class="skeleton-order-card">
+          <div class="skeleton-order-card__header"></div>
+          <div class="skeleton-order-card__body">
+            <div class="skeleton-order-card__img"></div>
+            <div class="skeleton-order-card__info">
+              <div class="skeleton-order-card__line"></div>
+              <div class="skeleton-order-card__line skeleton-order-card__line--short"></div>
+            </div>
+          </div>
+          <div class="skeleton-order-card__footer"></div>
+        </div>
+      </div>
+
       <!-- 空状态 -->
-      <div v-if="filteredOrders.length === 0" class="orders-empty">
+      <div v-else-if="filteredOrders.length === 0" class="orders-empty">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="1.2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
@@ -150,6 +167,69 @@ const formatDate = (iso) => {
   font-weight: 700;
   color: #121212;
   margin-bottom: 2.4rem;
+}
+
+/* 骨架屏 */
+.orders-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+}
+
+.skeleton-order-card {
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.skeleton-order-card__header {
+  height: 4.8rem;
+  background: #fafafa;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-order-card__body {
+  display: flex;
+  gap: 1.6rem;
+  padding: 1.6rem 2.4rem;
+}
+
+.skeleton-order-card__img {
+  width: 5rem;
+  height: 5rem;
+  background: #f0f0f0;
+  border-radius: 6px;
+  flex-shrink: 0;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-order-card__info {
+  flex: 1;
+}
+
+.skeleton-order-card__line {
+  height: 1.4rem;
+  width: 60%;
+  background: #f0f0f0;
+  border-radius: 4px;
+  margin-bottom: 0.8rem;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-order-card__line--short {
+  width: 40%;
+}
+
+.skeleton-order-card__footer {
+  height: 4.8rem;
+  border-top: 1px solid #f0f0f0;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ========== Tabs ========== */

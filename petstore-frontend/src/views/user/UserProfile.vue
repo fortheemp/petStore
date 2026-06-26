@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { post } from '@/api/request'
 
 const userStore = useUserStore()
 
@@ -23,6 +24,40 @@ const handleSave = () => {
   })
   ElMessage.success('保存成功')
 }
+
+const fileInput = ref(null)
+const avatarUploading = ref(false)
+
+const triggerUpload = () => {
+  fileInput.value?.click()
+}
+
+const handleAvatarChange = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+  avatarUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await post('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    const avatarUrl = res || res?.url
+    if (avatarUrl) {
+      userStore.updateUserInfo({ avatar: avatarUrl })
+      ElMessage.success('头像已更新')
+    }
+  } catch {
+    ElMessage.error('头像上传失败')
+  } finally {
+    avatarUploading.value = false
+    if (fileInput.value) fileInput.value.value = ''
+  }
+}
 </script>
 
 <template>
@@ -34,9 +69,13 @@ const handleSave = () => {
       <h2 class="profile-section__title">头像</h2>
       <div class="profile-avatar">
         <div class="profile-avatar__image">
-          {{ userStore.displayName.charAt(0) }}
+          <img v-if="userStore.userInfo?.avatar" :src="userStore.userInfo.avatar" alt="头像" class="profile-avatar__img" />
+          <span v-else>{{ userStore.displayName.charAt(0) }}</span>
         </div>
-        <button class="profile-avatar__btn">修改头像</button>
+        <input ref="fileInput" type="file" accept="image/*" class="profile-avatar__file" @change="handleAvatarChange" />
+        <button class="profile-avatar__btn" :disabled="avatarUploading" @click="triggerUpload">
+          {{ avatarUploading ? '上传中...' : '修改头像' }}
+        </button>
       </div>
     </div>
 
@@ -138,6 +177,17 @@ const handleSave = () => {
   font-size: 3.2rem;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.profile-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-avatar__file {
+  display: none;
 }
 
 .profile-avatar__btn {
@@ -151,7 +201,12 @@ const handleSave = () => {
   transition: all 0.2s;
 }
 
-.profile-avatar__btn:hover {
+.profile-avatar__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-avatar__btn:hover:not(:disabled) {
   border-color: var(--color-brand-blue);
   color: var(--color-brand-blue);
 }

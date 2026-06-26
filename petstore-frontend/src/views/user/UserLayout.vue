@@ -28,7 +28,8 @@ const isActive = (path) => {
       <aside class="user-sidebar">
         <div class="user-sidebar__user">
           <div class="user-sidebar__avatar">
-            {{ user.displayName.charAt(0) }}
+            <img v-if="user.userInfo?.avatar" :src="user.userInfo.avatar" alt="头像" class="user-sidebar__avatar-img" />
+            <span v-else>{{ user.displayName.charAt(0) }}</span>
           </div>
           <p class="user-sidebar__nickname">{{ user.displayName }}</p>
         </div>
@@ -97,7 +98,13 @@ const isActive = (path) => {
   font-weight: 700;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+}
+
+.user-sidebar__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-sidebar__nickname {

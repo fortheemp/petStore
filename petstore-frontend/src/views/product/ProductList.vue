@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   getProducts, categoryMap, productTypeMap, getCategoryCounts,
   subcategoriesMap, supplySubcategoriesMap, priceRanges, ratingOptions,
+  brandsMap,
 } from '@/api/product'
 import { getShopById } from '@/api/shop'
 import ProductCard from '@/components/common/ProductCard.vue'
@@ -74,6 +75,45 @@ const currentKeyword = computed(() => route.query.keyword || '')
 const currentSubcategory = ref('')
 const selectedPriceRange = ref('')
 const selectedRating = ref('')
+const selectedBrand = ref('')
+const pageSearchQuery = ref('')
+const showAllBrands = ref(false)
+
+// 品牌列表：根据当前选中的动物分类动态显示
+const brandList = computed(() => {
+  if (currentCategory.value && brandsMap[currentCategory.value]) {
+    return brandsMap[currentCategory.value]
+  }
+  const all = new Set()
+  Object.values(brandsMap).forEach((arr) => arr.forEach((b) => all.add(b)))
+  return [...all]
+})
+
+const visibleBrands = computed(() => {
+  if (showAllBrands.value || currentCategory.value) return brandList.value
+  return brandList.value.slice(0, 6)
+})
+
+watch(currentKeyword, (val) => { pageSearchQuery.value = val }, { immediate: true })
+
+// 同步路由 category 到 currentSubcategory（从首页带参数进来时高亮对应子分类）
+watch(() => route.query.category, (cat) => {
+  if (cat && categoryMap[cat]) {
+    currentSubcategory.value = categoryMap[cat].label
+  } else {
+    currentSubcategory.value = ''
+  }
+}, { immediate: true })
+
+const handlePageSearch = () => {
+  const kw = pageSearchQuery.value.trim()
+  const query = {}
+  if (kw) query.keyword = kw
+  if (currentProductType.value) query.productType = currentProductType.value
+  if (currentCategory.value) query.category = currentCategory.value
+  currentPage.value = 1
+  router.push({ path: '/products', query })
+}
 
 // 分类列表（动物类型）
 const categoryList = computed(() => {
@@ -140,6 +180,7 @@ const fetchProducts = async () => {
       productType: currentProductType.value,
       shopId: currentShopId.value,
       keyword: currentKeyword.value,
+      brand: selectedBrand.value,
       sort: currentSort.value,
       priceRange: selectedPriceRange.value,
       rating: selectedRating.value,
@@ -189,7 +230,6 @@ const handleAddToCart = (id) => {
 
 // 主分类点击（侧边栏动物分类）
 const handleCategoryClick = (key) => {
-  currentSubcategory.value = ''
 
   selectedPriceRange.value = ''
   selectedRating.value = ''
@@ -216,7 +256,7 @@ const handleSubcategoryClick = (sub) => {
 // 重置所有筛选
 const resetFilters = () => {
   currentSubcategory.value = ''
-
+  selectedBrand.value = ''
   selectedPriceRange.value = ''
   selectedRating.value = ''
 }
@@ -224,7 +264,6 @@ const resetFilters = () => {
 // 查看全部商品
 const viewAllProducts = () => {
   currentSubcategory.value = ''
-
   selectedPriceRange.value = ''
   selectedRating.value = ''
   currentPage.value = 1
@@ -234,7 +273,6 @@ const viewAllProducts = () => {
 // 大类点击（从 header 或本页触发）
 const handleProductTypeClick = (type) => {
   currentSubcategory.value = ''
-
   selectedPriceRange.value = ''
   selectedRating.value = ''
   const newType = currentProductType.value === type ? '' : type
@@ -249,16 +287,21 @@ watch(
   () => route.fullPath,
   () => {
     currentPage.value = Number(route.query.page) || 1
-    currentSubcategory.value = ''
+    if (!route.query.category) {
+      currentSubcategory.value = ''
+    }
     fetchProducts()
   },
 )
 
 // 监听侧边栏筛选变化
-watch([selectedPriceRange, selectedRating], () => {
+watch([selectedPriceRange, selectedRating, selectedBrand], () => {
   currentPage.value = 1
   fetchProducts()
 })
+
+// 分类变化时清空品牌
+watch(currentCategory, () => { selectedBrand.value = ''; showAllBrands.value = false })
 
 // 监听排序变化
 watch(currentSort, () => {
@@ -350,6 +393,61 @@ onMounted(async () => {
       <div class="container product-content__layout">
         <!-- 左侧筛选栏 -->
         <aside class="sidebar">
+          <!-- 搜索 -->
+          <div class="sidebar__section">
+            <el-input
+              v-model="pageSearchQuery"
+              placeholder="搜索商品..."
+              size="small"
+              clearable
+              @keyup.enter="handlePageSearch"
+              @clear="handlePageSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
+
+          <!-- 商品类型 -->
+          <div class="sidebar__section">
+            <h3 class="sidebar__title">商品类型</h3>
+            <ul class="sidebar__list">
+              <li
+                v-for="(val, key) in productTypeMap"
+                :key="key"
+                class="sidebar__item sidebar__item--filter"
+                :class="{ 'sidebar__item--active': currentProductType === key }"
+                @click="handleProductTypeClick(key)"
+              >
+                <span class="sidebar__item-label">{{ val.label }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 品牌 -->
+          <div v-if="brandList.length > 0" class="sidebar__section">
+            <h3 class="sidebar__title">品牌</h3>
+            <ul class="sidebar__list">
+              <li
+                v-for="b in visibleBrands"
+                :key="b"
+                class="sidebar__item sidebar__item--filter"
+                :class="{ 'sidebar__item--active': selectedBrand === b }"
+                @click="selectedBrand = selectedBrand === b ? '' : b"
+              >
+                <span class="sidebar__item-label">{{ b }}</span>
+              </li>
+            </ul>
+            <button
+              v-if="!currentCategory && brandList.length > 6"
+              class="sidebar__toggle"
+              @click="showAllBrands = !showAllBrands"
+            >
+              {{ showAllBrands ? '收起' : `展开更多 (${brandList.length - 6})` }}
+            </button>
+          </div>
+
           <!-- 价格区间 -->
           <div class="sidebar__section">
             <h3 class="sidebar__title">价格区间</h3>
@@ -384,7 +482,7 @@ onMounted(async () => {
 
           <!-- 重置按钮 -->
           <button
-            v-if="selectedPriceRange || selectedRating"
+            v-if="selectedPriceRange || selectedRating || selectedBrand"
             class="sidebar__reset"
             @click="resetFilters"
           >
@@ -725,6 +823,23 @@ onMounted(async () => {
 .sidebar__reset:hover {
   border-color: var(--color-brand-blue);
   color: var(--color-brand-blue);
+}
+
+.sidebar__toggle {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0;
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: var(--color-brand-blue);
+  cursor: pointer;
+  text-align: center;
+  transition: opacity 0.2s;
+}
+
+.sidebar__toggle:hover {
+  opacity: 0.7;
 }
 
 /* ========== 分页 ========== */
