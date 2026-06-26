@@ -66,6 +66,9 @@ const discount = (() => {
     <div class="product-card__info">
       <h3 class="product-card__title">{{ name }}</h3>
 
+      <!-- 商店名 -->
+      <p v-if="shopName" class="product-card__shop">{{ shopName }}</p>
+
       <!-- 评分 -->
       <div class="product-card__rating">
         <span class="stars">
@@ -208,13 +211,19 @@ const discount = (() => {
   font-size: 1.5rem;
   font-weight: var(--font-weight-semibold);
   color: #333333;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.8rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
   min-height: 4.2rem;
+}
+
+.product-card__shop {
+  font-size: 1.2rem;
+  color: #999;
+  margin-bottom: 0.8rem;
 }
 
 /* 评分 */
