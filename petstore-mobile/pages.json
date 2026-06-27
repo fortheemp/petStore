@@ -89,6 +89,12 @@
       "style": {
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/video/play",
+      "style": {
+        "navigationBarTitleText": "视频播放"
+      }
     }
   ],
   "globalStyle": {

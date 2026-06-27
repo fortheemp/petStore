@@ -1,4 +1,5 @@
 <template>
+  <view class="root">
   <view class="container">
     <!-- Status Tabs -->
     <view class="tabs">
@@ -24,6 +25,7 @@
         >
           <view class="order-header">
             <text class="order-no">订单号：{{ order.orderNo }}</text>
+            <text v-if="order.createTime" class="order-time">{{ formatTime(order.createTime) }}</text>
             <text class="order-status" :style="{ color: getStatusColor(order.status) }">
               {{ getStatusText(order.status) }}
             </text>
@@ -34,7 +36,7 @@
               <text class="item-name">{{ item.name }}</text>
               <text class="item-spec" v-if="item.spec">{{ item.spec }}</text>
               <view class="item-bottom">
-                <text class="item-price">¥{{ item.price.toFixed(2) }}</text>
+                <text class="item-price">¥{{ (Number(item.price) || 0).toFixed(2) }}</text>
                 <text class="item-qty">x{{ item.quantity }}</text>
               </view>
             </view>
@@ -43,7 +45,35 @@
             <text class="total-text">
               共{{ get_order_totalCount(order) }}件 合计：
             </text>
-            <text class="total-price">¥{{ order.totalPrice.toFixed(2) }}</text>
+            <text class="total-price">¥{{ (order.payAmount || order.totalPrice || 0).toFixed(2) }}</text>
+          </view>
+          <view class="order-actions">
+            <view class="action-btn" @tap.stop="goDetail(order.id)">
+              <text class="action-btn-text">查看详情</text>
+            </view>
+            <view v-if="order.status === 0" class="action-btn" @tap.stop="cancelOrder(order.id)">
+              <text class="action-btn-text">取消订单</text>
+            </view>
+            <view v-if="order.status === 0" class="action-btn action-btn--primary" @tap.stop="payOrder(order.id)">
+              <text class="action-btn-text action-btn-text--white">去付款</text>
+            </view>
+            <view v-if="order.status === 2 || order.status === 3" class="action-btn action-btn--refund" @tap.stop="openRefundDialog(order)">
+              <text class="action-btn-text action-btn-text--refund">申请退单</text>
+            </view>
+            <view v-if="order.status === 2" class="action-btn action-btn--primary" @tap.stop="confirmOrder(order.id)">
+              <text class="action-btn-text action-btn-text--white">确认收货</text>
+            </view>
+            <view v-if="order.status === 3 && !order.reviewed" class="action-btn action-btn--primary" @tap.stop="goDetail(order.id)">
+              <text class="action-btn-text action-btn-text--white">写评价</text>
+            </view>
+          </view>
+          <!-- 退单原因/状态 -->
+          <view v-if="order.status === -2 || order.status === -3 || order.status === -4" class="refund-info">
+            <text class="refund-info__label">退单原因：</text>
+            <text class="refund-info__reason">{{ order.refundReason || '未填写' }}</text>
+          </view>
+          <view v-if="(order.status === 2 || order.status === 3) && order.refundReason" class="refund-rejected">
+            <text>退单被拒绝：{{ order.refundReason }}</text>
           </view>
         </view>
       </view>
@@ -57,56 +87,87 @@
       </view>
     </scroll-view>
   </view>
+
+    <!-- 退单原因弹窗 -->
+    <view v-if="showRefundDialog" class="dialog-mask" @tap.self="showRefundDialog = false">
+      <view class="dialog">
+        <text class="dialog__title">申请退单</text>
+        <text class="dialog__hint">请填写退单原因，提交后等待管理员审核。</text>
+        <textarea
+          class="dialog__textarea"
+          v-model="refundReason"
+          placeholder="请输入退单原因（可不填）"
+          :maxlength="200"
+        ></textarea>
+        <view class="dialog__actions">
+          <view class="dialog__btn dialog__btn--cancel" @tap="showRefundDialog = false">
+            <text class="dialog__btn-text">取消</text>
+          </view>
+          <view class="dialog__btn dialog__btn--confirm" @tap="submitRefund">
+            <text class="dialog__btn-text dialog__btn-text--white">提交申请</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import { getOrderList, payOrder as payOrderApi, cancelOrder as cancelOrderApi, confirmOrder as confirmOrderApi, refundOrder as refundOrderApi } from '@/services/order'
 
-const mockOrders = [
-  { id: 1, orderNo: 'PS20251220001', status: 1, statusText: '待付款', items: [{ productId: 1, name: '皇家小型犬成犬粮 2kg', price: 159, quantity: 1, spec: '2kg 标准装' }], goodsTotal: 159, freight: 0, totalPrice: 159, createTime: '2025-12-20 14:30:00' },
-  { id: 2, orderNo: 'PS20251218002', status: 2, statusText: '待发货', items: [{ productId: 2, name: '渴望六种鱼猫粮 5.4kg', price: 428, quantity: 1, spec: '5.4kg 标准装' }], goodsTotal: 428, freight: 0, totalPrice: 428, createTime: '2025-12-18 10:15:00', payMethod: '微信支付' },
-  { id: 3, orderNo: 'PS20251215003', status: 3, statusText: '待收货', items: [{ productId: 12, name: '猫砂豆腐砂活性炭 6L', price: 29.9, quantity: 2, spec: '标准款' }, { productId: 9, name: '猫咪自动饮水机', price: 79, quantity: 1, spec: '标准款' }], goodsTotal: 138.8, freight: 0, totalPrice: 138.8, createTime: '2025-12-15 09:00:00', payMethod: '支付宝' },
-  { id: 4, orderNo: 'PS20251210004', status: 4, statusText: '已完成', items: [{ productId: 4, name: '猫抓板瓦楞纸耐磨款', price: 29.9, quantity: 3, spec: '标准款' }], goodsTotal: 89.7, freight: 0, totalPrice: 89.7, createTime: '2025-12-10 16:45:00', payMethod: '微信支付', reviewed: true },
-  { id: 5, orderNo: 'PS20251205005', status: 4, statusText: '已完成', items: [{ productId: 22, name: '柯基犬幼犬 2月龄 已驱虫', price: 2800, quantity: 1, spec: '标准款' }], goodsTotal: 2800, freight: 0, totalPrice: 2800, createTime: '2025-12-05 11:20:00', payMethod: '支付宝', reviewed: false },
-]
+const STATUS_QUERY_MAP = {
+  pending: 0,
+  shipped: 2,
+  review: 3,
+  completed: 4,
+}
 
-const currentTab = ref(0)
+const currentTab = ref(null)
 const tabs = [
-  { label: '全部', value: 0 },
-  { label: '待付款', value: 1 },
-  { label: '待发货', value: 2 },
-  { label: '待收货', value: 3 },
-  { label: '已完成', value: 4 }
+  { label: '全部', value: null },
+  { label: '待付款', value: 0 },
+  { label: '待发货', value: 1 },
+  { label: '待收货', value: 2 },
+  { label: '已完成', value: 3 }
 ]
 
 const orders = ref([])
 
 const filteredOrders = computed(() => {
-  if (currentTab.value === 0) return orders.value
+  if (currentTab.value === null) return orders.value
   return orders.value.filter(o => o.status === currentTab.value)
 })
 
 const getStatusText = (status) => {
   const map = {
-    1: '待付款',
-    2: '待发货',
-    3: '待收货',
+    0: '待付款',
+    1: '待发货',
+    2: '待收货',
+    3: '待评价',
     4: '已完成',
-    5: '已取消'
+    '-1': '已取消',
+    '-2': '退款申请中',
+    '-3': '退款成功',
+    '-4': '管理员退单',
   }
-  return map[status] || '未知状态'
+  return map[String(status)] || '未知'
 }
 
 const getStatusColor = (status) => {
   const map = {
-    1: '#ff9800',
+    0: '#ff6c10',
+    1: '#1c49c2',
     2: '#1c49c2',
-    3: '#1c49c2',
-    4: '#999999',
-    5: '#999999'
+    3: '#999999',
+    4: '#52c41a',
+    '-1': '#999999',
+    '-2': '#ff4d4f',
+    '-3': '#52c41a',
+    '-4': '#ff4d4f',
   }
-  return map[status] || '#999999'
+  return map[String(status)] || '#999999'
 }
 
 const get_order_totalCount = (order) => {
@@ -114,15 +175,26 @@ const get_order_totalCount = (order) => {
   return order.items.reduce((sum, item) => sum + item.quantity, 0)
 }
 
-const loadOrders = () => {
-  // Load from localStorage first
-  const stored = uni.getStorageSync('petstore_orders')
-  if (stored && Array.isArray(stored) && stored.length > 0) {
-    orders.value = stored
-  } else {
-    // Fallback to mockOrders
-    orders.value = [...mockOrders]
+const loadOrders = async () => {
+  try {
+    const list = await getOrderList()
+    const arr = Array.isArray(list) ? list : []
+    arr.sort((a, b) => {
+      const ta = a.createTime ? new Date(a.createTime).getTime() : 0
+      const tb = b.createTime ? new Date(b.createTime).getTime() : 0
+      return tb - ta
+    })
+    orders.value = arr
+  } catch {
+    orders.value = []
   }
+}
+
+const formatTime = (t) => {
+  if (!t) return ''
+  const d = new Date(t)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 const switchTab = (value) => {
@@ -133,13 +205,85 @@ const goDetail = (id) => {
   uni.navigateTo({ url: `/pages/order/detail?id=${id}` })
 }
 
-// Use onShow to refresh data each time the page is shown
+const payOrder = async (id) => {
+  try {
+    await payOrderApi(id)
+    uni.showToast({ title: '支付成功', icon: 'success' })
+    loadOrders()
+  } catch {}
+}
+
+const cancelOrder = async (id) => {
+  uni.showModal({
+    title: '提示',
+    content: '确定取消该订单吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await cancelOrderApi(id)
+          uni.showToast({ title: '订单已取消', icon: 'success' })
+          loadOrders()
+        } catch {}
+      }
+    },
+  })
+}
+
+const confirmOrder = async (id) => {
+  try {
+    await confirmOrderApi(id)
+    uni.showToast({ title: '已确认收货', icon: 'success' })
+    loadOrders()
+  } catch {}
+}
+
+// 退单相关
+const showRefundDialog = ref(false)
+const refundTarget = ref(null)
+const refundReason = ref('')
+
+const openRefundDialog = (order) => {
+  refundTarget.value = order
+  refundReason.value = ''
+  showRefundDialog.value = true
+}
+
+const submitRefund = async () => {
+  if (!refundTarget.value) return
+  try {
+    await refundOrderApi(refundTarget.value.id, { reason: refundReason.value })
+    showRefundDialog.value = false
+    refundTarget.value = null
+    uni.showToast({ title: '退单申请已提交', icon: 'success' })
+    loadOrders()
+  } catch (e) {
+    uni.showToast({ title: '退单申请失败', icon: 'none' })
+  }
+}
+
+// Read query param on first show, then load orders
+let firstShow = true
 onShow(() => {
+  if (firstShow) {
+    firstShow = false
+    const pages = getCurrentPages()
+    const page = pages[pages.length - 1]
+    const status = page?.$page?.options?.status || page?.options?.status
+    if (status) {
+      const tabValue = STATUS_QUERY_MAP[status]
+      if (tabValue !== undefined) currentTab.value = tabValue
+    }
+  }
   loadOrders()
 })
 </script>
 
 <style scoped>
+.root {
+  position: relative;
+  min-height: 100vh;
+}
+
 .container {
   background: #f8f9fa;
   min-height: 100vh;
@@ -207,6 +351,12 @@ onShow(() => {
 .order-no {
   font-size: 24rpx;
   color: #999;
+}
+
+.order-time {
+  font-size: 22rpx;
+  color: #bbb;
+  margin-left: 12rpx;
 }
 
 .order-status {
@@ -283,6 +433,159 @@ onShow(() => {
   color: #bd2848;
   font-size: 32rpx;
   font-weight: bold;
+}
+
+/* Actions */
+.order-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f5f5f5;
+}
+
+.action-btn {
+  padding: 0 24rpx;
+  height: 56rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn--primary {
+  background: #ff6c10;
+  border-color: #ff6c10;
+}
+
+.action-btn-text {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.action-btn-text--white {
+  color: #fff;
+}
+
+.action-btn--refund {
+  border-color: #e74c3c;
+}
+
+.action-btn-text--refund {
+  color: #e74c3c;
+}
+
+/* Refund Info */
+.refund-info {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: #fff8f8;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+}
+
+.refund-info__label {
+  color: #999;
+}
+
+.refund-info__reason {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.refund-rejected {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: #fff3f0;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: #e74c3c;
+}
+
+/* Dialog */
+.dialog-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 48rpx 40rpx;
+  width: 600rpx;
+  max-width: 85vw;
+}
+
+.dialog__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #121212;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.dialog__hint {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.dialog__textarea {
+  width: 100%;
+  min-height: 180rpx;
+  border: 2rpx solid #ddd;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+  background: #fff;
+  outline: none;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.dialog__btn {
+  padding: 16rpx 40rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog__btn--cancel {
+  background: #f5f5f5;
+}
+
+.dialog__btn--confirm {
+  background: #e74c3c;
+}
+
+.dialog__btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #666;
+}
+
+.dialog__btn-text--white {
+  color: #fff;
 }
 
 /* Empty State */

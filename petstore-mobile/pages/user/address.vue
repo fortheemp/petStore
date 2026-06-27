@@ -120,6 +120,11 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { useUserStore } from '@/stores/user'
+import { getAddressList, addAddress as apiAddAddress, updateAddress as apiUpdateAddress, deleteAddress as apiDeleteAddress, setDefaultAddress } from '@/services/address'
+
+const userStore = useUserStore()
 
 const provinces = {
   '广东省': {
@@ -134,10 +139,25 @@ const provinces = {
   },
 }
 
-const addressList = ref([
-  { id: 1, name: '张三', phone: '13800138000', province: '北京市', city: '北京市', district: '朝阳区', detail: '宠物大道100号1栋1单元101', isDefault: true },
-  { id: 2, name: '张三', phone: '13800138000', province: '北京市', city: '北京市', district: '海淀区', detail: '中关村大街50号', isDefault: false },
-])
+const addressList = ref([])
+
+const loadAddresses = async () => {
+  const userId = userStore.user?.id
+  if (!userId) { addressList.value = []; return }
+  try {
+    const res = await getAddressList(userId)
+    addressList.value = Array.isArray(res) ? res.map(a => ({
+      id: a.id,
+      name: a.receiverName,
+      phone: a.phone,
+      province: a.province,
+      city: a.city,
+      district: a.district,
+      detail: a.detail,
+      isDefault: a.isDefault === 1,
+    })) : []
+  } catch { addressList.value = [] }
+}
 
 const showForm = ref(false)
 const isEditing = ref(false)
@@ -183,7 +203,7 @@ const openEditForm = (addr) => {
   showForm.value = true
 }
 
-const saveAddress = () => {
+const saveAddress = async () => {
   if (!editForm.value.name.trim()) {
     uni.showToast({ title: '请输入收货人姓名', icon: 'none' })
     return
@@ -201,37 +221,61 @@ const saveAddress = () => {
     return
   }
 
-  if (editForm.value.isDefault) {
-    addressList.value.forEach(a => { a.isDefault = false })
+  const userId = userStore.user?.id
+  if (!userId) return
+
+  const data = {
+    userId,
+    receiverName: editForm.value.name,
+    phone: editForm.value.phone,
+    province: editForm.value.province,
+    city: editForm.value.city,
+    district: editForm.value.district,
+    detail: editForm.value.detail,
+    isDefault: editForm.value.isDefault ? 1 : 0,
   }
 
-  if (isEditing.value) {
-    const idx = addressList.value.findIndex(a => a.id === editingId.value)
-    if (idx !== -1) addressList.value[idx] = { ...editForm.value }
-    uni.showToast({ title: '修改成功', icon: 'success' })
-  } else {
-    addressList.value.push({ ...editForm.value, id: Date.now() })
-    uni.showToast({ title: '新增成功', icon: 'success' })
+  try {
+    if (isEditing.value) {
+      await apiUpdateAddress(editingId.value, data)
+      uni.showToast({ title: '修改成功', icon: 'success' })
+    } else {
+      await apiAddAddress(data)
+      uni.showToast({ title: '新增成功', icon: 'success' })
+    }
+    showForm.value = false
+    await loadAddresses()
+  } catch {
+    uni.showToast({ title: '操作失败', icon: 'none' })
   }
-  showForm.value = false
 }
 
 const deleteAddress = (addr) => {
   uni.showModal({
     title: '删除确认',
     content: `确定要删除「${addr.name}」的收货地址吗？`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        addressList.value = addressList.value.filter(a => a.id !== addr.id)
-        uni.showToast({ title: '已删除', icon: 'success' })
+        try {
+          await apiDeleteAddress(addr.id)
+          uni.showToast({ title: '已删除', icon: 'success' })
+          await loadAddresses()
+        } catch {
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
       }
     }
   })
 }
 
-const setDefault = (id) => {
-  addressList.value.forEach(a => { a.isDefault = (a.id === id) })
-  uni.showToast({ title: '已设为默认', icon: 'success' })
+const setDefault = async (id) => {
+  try {
+    await setDefaultAddress(id)
+    uni.showToast({ title: '已设为默认', icon: 'success' })
+    await loadAddresses()
+  } catch {
+    uni.showToast({ title: '操作失败', icon: 'none' })
+  }
 }
 
 const selectAddress = (addr) => {
@@ -244,6 +288,10 @@ const selectAddress = (addr) => {
     }
   }
 }
+
+onShow(() => {
+  loadAddresses()
+})
 </script>
 
 <style scoped>

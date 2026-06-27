@@ -92,6 +92,7 @@
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { register as registerApi } from '@/services/user'
 
 const userStore = useUserStore()
 const form = ref({
@@ -170,17 +171,18 @@ const handleRegister = async () => {
 
   loading.value = true
   try {
-    const result = await userStore.register(form.value)
-    if (result.success) {
-      uni.showToast({ title: '注册成功，请登录', icon: 'success' })
-      setTimeout(() => {
-        uni.navigateTo({ url: '/pages/auth/login' })
-      }, 1500)
-    } else {
-      uni.showToast({ title: result.message || '注册失败', icon: 'none' })
-    }
-  } catch {
-    uni.showToast({ title: '注册失败，请稍后重试', icon: 'none' })
+    const { token, user } = await registerApi({
+      username: form.value.username,
+      password: form.value.password,
+      nickname: form.value.username,
+    })
+    userStore.login(token, user)
+    uni.showToast({ title: '注册成功', icon: 'success' })
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/index/index' })
+    }, 1500)
+  } catch (err) {
+    uni.showToast({ title: err.message || '注册失败', icon: 'none' })
   } finally {
     loading.value = false
   }

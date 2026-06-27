@@ -6,28 +6,22 @@
         <text class="header__back"><</text>
       </view>
       <view class="header__center">
-        <view class="header__avatar">
-          <text class="header__avatar-text">助</text>
-        </view>
+        <image class="header__avatar" src="/static/icons/robot.png" mode="aspectFit" />
         <text class="header__title">PetStore 智能助手</text>
       </view>
       <view class="header__right"></view>
     </view>
 
     <!-- Messages -->
-    <scroll-view
-      scroll-y
+    <view
       class="messages"
-      :scroll-into-view="scrollTarget"
-      :show-scrollbar="false"
-      :scroll-with-animation="true"
+      ref="messagesRef"
+      @scroll="onMessagesScroll"
     >
-      <view v-for="msg in messages" :key="msg.id" :id="'msg-' + msg.id">
+      <view v-for="msg in messages" :key="msg.id" :id="'msg-' + msg.id" class="msg-row">
         <!-- AI Message -->
         <view v-if="msg.sender === 'ai'" class="msg msg--ai">
-          <view class="msg__avatar msg__avatar--ai">
-            <text class="msg__avatar-text">助</text>
-          </view>
+          <image class="msg__avatar msg__avatar--ai" src="/static/icons/robot.png" mode="aspectFit" />
           <view class="msg__body">
             <view class="msg__bubble msg__bubble--ai">
               <text class="msg__text">{{ msg.displayContent || msg.content }}</text>
@@ -62,22 +56,18 @@
 
         <!-- User Message -->
         <view v-else class="msg msg--user">
-          <view class="msg__body msg__body--user">
+          <view class="msg__body">
             <view class="msg__bubble msg__bubble--user">
               <text class="msg__text msg__text--user">{{ msg.content }}</text>
             </view>
           </view>
-          <view class="msg__avatar msg__avatar--user">
-            <text class="msg__avatar-text">我</text>
-          </view>
+          <image class="msg__avatar msg__avatar--user" src="/static/icons/user.png" mode="aspectFit" />
         </view>
       </view>
 
       <!-- Loading dots -->
       <view v-if="loading" class="msg msg--ai">
-        <view class="msg__avatar msg__avatar--ai">
-          <text class="msg__avatar-text">助</text>
-        </view>
+        <image class="msg__avatar msg__avatar--ai" src="/static/icons/robot.png" mode="aspectFit" />
         <view class="msg__bubble msg__bubble--ai msg__bubble--loading">
           <view class="loading-dots">
             <view class="loading-dot"></view>
@@ -88,7 +78,7 @@
       </view>
 
       <view id="msg-bottom" style="height: 1rpx;"></view>
-    </scroll-view>
+    </view>
 
     <!-- Quick Questions -->
     <view v-if="messages.length <= 1" class="quick-bar">
@@ -125,7 +115,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { getAIReply, getWelcomeMessage } from '@/api/ai'
+import { getAIReply, getWelcomeMessage } from '@/services/ai'
 import { useCartStore } from '@/stores/cart'
 
 const cartStore = useCartStore()
@@ -141,12 +131,12 @@ const quickQuestions = [
   '如何给宠物洗澡？',
 ]
 
+const messagesRef = ref(null)
+
 const scrollToBottom = () => {
   nextTick(() => {
-    scrollTarget.value = ''
-    nextTick(() => {
-      scrollTarget.value = 'msg-bottom'
-    })
+    const el = messagesRef.value?.$el || messagesRef.value
+    if (el) el.scrollTop = el.scrollHeight
   })
 }
 
@@ -254,9 +244,7 @@ if (!hasWelcome.value) {
   height: 56rpx;
   border-radius: 50%;
   background: rgba(255,255,255,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 .header__avatar-text {
   font-size: 24rpx;
@@ -273,28 +261,31 @@ if (!hasWelcome.value) {
 .messages {
   flex: 1;
   height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 20rpx 20rpx;
 }
 
 /* Message row */
+.msg-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 28rpx;
+}
 .msg {
   display: flex;
   align-items: flex-start;
   gap: 14rpx;
-  margin-bottom: 28rpx;
 }
 .msg--user {
-  flex-direction: row-reverse;
+  margin-left: auto;
 }
 
-/* Avatar */
 .msg__avatar {
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
   flex-shrink: 0;
 }
 .msg__avatar--ai {
@@ -313,9 +304,8 @@ if (!hasWelcome.value) {
 .msg__body {
   max-width: 72%;
 }
-.msg__body--user {
-  display: flex;
-  flex-direction: row-reverse;
+.msg--user .msg__body {
+  max-width: none;
 }
 
 /* Bubble */

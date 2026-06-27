@@ -67,7 +67,7 @@
                 :class="{ 'spec-option--active': selectedSpecIndex[gi] === oi }"
                 @tap="selectedSpecIndex[gi] = oi"
               >
-                <text class="spec-option__text" :class="{ 'spec-option__text--active': selectedSpecIndex[gi] === oi }">{{ opt }}</text>
+                <text class="spec-option__text" :class="{ 'spec-option__text--active': selectedSpecIndex[gi] === oi }">{{ typeof opt === 'string' ? opt : opt.name }}</text>
               </view>
             </view>
           </view>
@@ -123,7 +123,7 @@
         <view class="product-tabs__content">
           <!-- Detail -->
           <view v-if="activeTab === 'detail'" class="tab-detail">
-            <text class="tab-detail__text">{{ product.description }}</text>
+            <text class="tab-detail__text">{{ plainDescription }}</text>
           </view>
 
           <!-- Specs table (from PC .specs-table) -->
@@ -181,22 +181,12 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useCartStore } from '@/stores/cart'
+import { getProductById } from '@/services/product'
 
 const tabs = [
   { key: 'detail', label: '商品详情' },
   { key: 'specs', label: '规格参数' },
   { key: 'reviews', label: '用户评价' },
-]
-
-const mockProducts = [
-  { id: 1, name: '皇家小型犬成犬粮 2kg', price: 159, originalPrice: 199, rating: 4.8, reviewCount: 2341, shopName: '皇家宠物旗舰店', category: 'dogs', productType: 'supply', stock: 200, description: '专为小型犬设计，颗粒小巧易咀嚼。优质动物蛋白，添加益生元呵护肠道。', specs: [{ name: '规格', options: ['1kg 试吃装', '2kg 标准装', '8kg 家庭装'] }], specsTable: [{ label: '品牌', value: '皇家' }, { label: '适用犬种', value: '小型犬' }, { label: '重量', value: '2kg' }, { label: '保质期', value: '18个月' }], reviews: [{ id: 1, username: ' pet_lover', rating: 5, content: '狗狗很爱吃，消化也不错', createTime: '2025-12-10' }], images: [] },
-  { id: 2, name: '渴望六种鱼猫粮 5.4kg', price: 428, originalPrice: 528, rating: 4.9, reviewCount: 1892, shopName: '渴望官方旗舰店', category: 'cats', productType: 'supply', stock: 150, description: '六种深海鱼配方，高蛋白低碳水，无谷物配方降低过敏风险。', specs: [{ name: '规格', options: ['1.8kg 试吃装', '5.4kg 标准装'] }], specsTable: [{ label: '品牌', value: '渴望' }, { label: '适用猫种', value: '全猫' }, { label: '重量', value: '5.4kg' }], reviews: [], images: [] },
-  { id: 3, name: '小型犬磨牙棒玩具套装', price: 39.9, originalPrice: null, rating: 4.5, reviewCount: 567, shopName: '爱宠生活馆', category: 'dogs', productType: 'supply', stock: 300, description: '天然橡胶材质，安全无毒，帮助清洁牙齿。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
-  { id: 4, name: '猫抓板瓦楞纸耐磨款', price: 29.9, originalPrice: 49.9, rating: 4.6, reviewCount: 3201, shopName: '喵星人用品店', category: 'cats', productType: 'supply', stock: 500, description: '高密度瓦楞纸，耐磨持久，满足猫咪磨爪天性。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
-  { id: 5, name: '森森鱼缸超白玻璃 40cm', price: 258, originalPrice: 328, rating: 4.7, reviewCount: 421, shopName: '森森水族旗舰店', category: 'fish', productType: 'supply', stock: 80, description: '超白玻璃材质，透光率高，适合水族造景。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
-  { id: 9, name: '猫咪自动饮水机 静音循环', price: 79, originalPrice: 119, rating: 4.7, reviewCount: 2103, shopName: '喵星人用品店', category: 'cats', productType: 'supply', stock: 250, description: '静音水泵，活水循环，吸引猫咪多喝水。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
-  { id: 12, name: '猫砂豆腐砂活性炭 6L', price: 29.9, originalPrice: 39.9, rating: 4.8, reviewCount: 5672, shopName: '喵星人用品店', category: 'cats', productType: 'supply', stock: 800, description: '活性炭除臭，结团快，可冲厕所。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
-  { id: 22, name: '柯基犬幼犬 2月龄 已驱虫', price: 2800, originalPrice: 3500, rating: 4.8, reviewCount: 28, shopName: '萌宠乐园', category: 'dogs', productType: 'pet', stock: 1, description: '健康活泼的柯基幼犬，已完成首次驱虫。', specs: [{ name: '规格', options: ['标准款'] }], specsTable: [], reviews: [], images: [] },
 ]
 
 const product = ref(null)
@@ -211,6 +201,11 @@ const starText = computed(() => {
   return '★'.repeat(full) + (half ? '☆' : '') + '☆'.repeat(5 - full - half)
 })
 
+const plainDescription = computed(() => {
+  if (!product.value?.description) return ''
+  return product.value.description.replace(/<[^>]+>/g, '')
+})
+
 const currentSpec = computed(() => {
   if (!product.value?.specs?.length) return '标准款'
   return product.value.specs
@@ -218,14 +213,16 @@ const currentSpec = computed(() => {
     .join(' / ')
 })
 
-onLoad((query) => {
+onLoad(async (query) => {
   const id = query?.id
   if (!id) return
-  const result = mockProducts.find(p => p.id === Number(id))
-  if (result) {
-    product.value = result
-    selectedSpecIndex.value = (result.specs || []).map(() => 0)
-  }
+  try {
+    const result = await getProductById(Number(id))
+    if (result) {
+      product.value = result
+      selectedSpecIndex.value = (result.specs || []).map(() => 0)
+    }
+  } catch {}
 })
 
 const decreaseQty = () => { if (quantity.value > 1) quantity.value-- }
@@ -234,7 +231,6 @@ const increaseQty = () => { if (quantity.value < product.value.stock) quantity.v
 const addToCart = () => {
   if (!product.value) return
   useCartStore().addItem(product.value, quantity.value, currentSpec.value)
-  uni.showToast({ title: '已加入购物车', icon: 'success' })
 }
 
 const buyNow = () => {

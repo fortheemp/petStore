@@ -64,15 +64,18 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { useCartStore } from '@/stores/cart'
+import { getAddressList } from '@/services/address'
+import { createOrder } from '@/services/order'
+import { useUserStore } from '@/stores/user'
 
-const mockAddresses = [
-  { id: 1, name: '张三', phone: '13800138000', province: '北京市', city: '北京市', district: '朝阳区', detail: '宠物大道100号1栋1单元101', isDefault: true },
-  { id: 2, name: '张三', phone: '13800138000', province: '北京市', city: '北京市', district: '海淀区', detail: '中关村大街50号', isDefault: false },
-]
+const cartStore = useCartStore()
+const userStore = useUserStore()
 
 const address = ref(null)
 const orderItems = ref([])
 const freight = ref(0)
+const loading = ref(false)
 
 const goodsTotal = computed(() => {
   return orderItems.value
@@ -88,40 +91,43 @@ const totalPrice = computed(() => {
   return (parseFloat(goodsTotal.value) + freight.value).toFixed(2)
 })
 
-// Load checkout items from URL params or localStorage
-const loadCheckoutItems = (options) => {
-  // Try URL params first
-  if (options?.items) {
-    try {
-      orderItems.value = JSON.parse(decodeURIComponent(options.items))
-    } catch (e) {
-      orderItems.value = []
-    }
-  }
-
-  // Fallback to localStorage
-  if (orderItems.value.length === 0) {
-    const stored = uni.getStorageSync('petstore_checkout_items')
-    if (stored) {
-      try {
-        orderItems.value = typeof stored === 'string' ? JSON.parse(stored) : stored
-      } catch (e) {
-        orderItems.value = []
-      }
-    }
-  }
+// Load checkout items from cart store
+const loadCheckoutItems = async () => {
+  await cartStore.loadCart()
+  orderItems.value = cartStore.items.map(item => ({
+    ...item,
+    spec: item.spec || '',
+  }))
 }
 
-// Load default address
-const loadDefaultAddress = () => {
-  address.value = mockAddresses.find(a => a.isDefault) || mockAddresses[0] || null
+// Load default address from backend
+const loadDefaultAddress = async () => {
+  const userId = userStore.user?.id
+  if (!userId) return
+  try {
+    const res = await getAddressList(userId)
+    const list = Array.isArray(res) ? res : []
+    if (list.length) {
+      const def = list.find(a => a.isDefault === 1) || list[0]
+      address.value = {
+        id: def.id,
+        name: def.receiverName,
+        phone: def.phone,
+        province: def.province,
+        city: def.city,
+        district: def.district,
+        detail: def.detail,
+      }
+    }
+  } catch {}
 }
 
 const selectAddress = () => {
   uni.navigateTo({ url: '/pages/user/address?select=1' })
 }
 
-const submitOrder = () => {
+const submitOrder = async () => {
+  if (loading.value) return
   if (!address.value) {
     uni.showToast({ title: '请选择收货地址', icon: 'none' })
     return
@@ -131,44 +137,41 @@ const submitOrder = () => {
     return
   }
 
-  // Build order object
-  const order = {
-    id: Date.now(),
-    orderNo: 'PS' + Date.now(),
-    status: 1,
-    statusText: '待付款',
-    address: { ...address.value },
-    items: orderItems.value.map(item => ({ ...item })),
-    goodsTotal: parseFloat(goodsTotal.value),
-    freight: freight.value,
-    totalPrice: parseFloat(totalPrice.value),
-    totalCount: totalCount.value,
-    createTime: new Date().toLocaleString('zh-CN', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    }).replace(/\//g, '-'),
-    payMethod: ''
+  loading.value = true
+  try {
+    const cartItemIds = orderItems.value.map(item => item.id)
+    await createOrder({
+      addressId: address.value.id,
+      cartItemIds,
+    })
+    await cartStore.clearCart()
+    uni.showToast({ title: '订单提交成功', icon: 'success' })
+    setTimeout(() => {
+      uni.redirectTo({ url: '/pages/order/list' })
+    }, 1500)
+  } catch (e) {
+    console.error('下单失败:', e)
+    uni.showToast({ title: e?.message || '下单失败，请重试', icon: 'none' })
+  } finally {
+    loading.value = false
   }
-
-  // Save order to localStorage
-  const orders = uni.getStorageSync('petstore_orders') || []
-  orders.unshift(order)
-  uni.setStorageSync('petstore_orders', orders)
-
-  // Clear checkout items from localStorage
-  uni.removeStorageSync('petstore_checkout_items')
-  uni.removeStorageSync('petstore_cart')
-
-  uni.showToast({ title: '订单提交成功', icon: 'success' })
-  setTimeout(() => {
-    uni.redirectTo({ url: '/pages/order/list' })
-  }, 1500)
 }
 
-// Initialize
-onLoad((options) => {
-  loadDefaultAddress()
-  loadCheckoutItems(options)
+// Listen for address selection from address page
+uni.$on('selectAddress', (addr) => {
+  address.value = {
+    id: addr.id,
+    name: addr.name,
+    phone: addr.phone,
+    province: addr.province,
+    city: addr.city,
+    district: addr.district,
+    detail: addr.detail,
+  }
+})
+
+onLoad(async () => {
+  await Promise.all([loadDefaultAddress(), loadCheckoutItems()])
 })
 </script>
 
