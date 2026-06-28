@@ -38,6 +38,16 @@ const submitOrder = async () => {
     ElMessage.warning('请选择收货地址')
     return
   }
+  for (const item of selectedItems.value) {
+    if (item.stock === 0) {
+      ElMessage.warning(`「${item.name}」已售罄，请返回购物车处理`)
+      return
+    }
+    if (item.quantity > item.stock) {
+      ElMessage.warning(`「${item.name}」库存不足（剩余 ${item.stock} 件），请返回购物车修改数量`)
+      return
+    }
+  }
   const cartItemIds = selectedItems.value.map((item) => item.id)
   const result = await orderStore.createOrder({
     addressId: selectedAddressId.value,
@@ -106,7 +116,10 @@ const submitOrder = async () => {
                 </svg>
               </div>
               <div class="checkout-item__info">
-                <p class="checkout-item__name">{{ item.name }}</p>
+                <p class="checkout-item__name">
+                  {{ item.name }}
+                  <span v-if="item.stock === 0" class="checkout-item__soldout">已售罄</span>
+                </p>
                 <p v-if="item.spec" class="checkout-item__spec">规格：{{ item.spec.value }}</p>
               </div>
               <div class="checkout-item__price">¥{{ item.price.toFixed(2) }}</div>
@@ -303,6 +316,18 @@ const submitOrder = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.checkout-item__soldout {
+  display: inline-block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: #e74c3c;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.4rem;
+  margin-left: 0.6rem;
+  vertical-align: middle;
 }
 .checkout-item__spec { font-size: 1.3rem; color: #999; }
 

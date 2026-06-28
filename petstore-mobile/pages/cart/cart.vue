@@ -272,7 +272,7 @@ const goCheckout = () => {
 /* Bottom bar */
 .bottom-bar {
   position: fixed;
-  bottom: 100rpx;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 110rpx;

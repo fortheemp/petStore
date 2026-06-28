@@ -1,6 +1,6 @@
 <template>
   <view class="container">
-    <scroll-view scroll-y class="video-list" :show-scrollbar="false">
+    <view class="video-list">
       <view v-if="loading" class="loading">
         <text class="loading-text">加载中...</text>
       </view>
@@ -8,26 +8,16 @@
       <view v-else-if="videos.length > 0">
         <view
           class="video-card"
-          v-for="video in videos"
+          v-for="(video, idx) in videos"
           :key="video.id"
           @tap="playVideo(video)"
         >
           <view class="video-cover">
-            <video
-              v-if="video.url"
-              class="cover-video"
-              :src="video.url"
-              :muted="true"
-              preload="metadata"
-              :poster="video.cover"
-              :show-center-play-btn="false"
-              :show-play-btn="false"
-              :controls="false"
-              object-fit="cover"
-              @error="onVideoError($event, video)"
-            />
-            <view v-else class="cover-placeholder">
-              <text class="cover-text">{{ video.title.charAt(0) }}</text>
+            <view
+              class="cover-placeholder"
+              :style="{ background: coverThemes[idx % coverThemes.length].bg }"
+            >
+              <text class="cover-emoji">{{ coverThemes[idx % coverThemes.length].icon }}</text>
             </view>
             <view class="play-overlay">
               <view class="play-btn">
@@ -55,7 +45,7 @@
         <text class="empty-text">暂无视频</text>
         <text class="empty-hint">精彩内容即将上线</text>
       </view>
-    </scroll-view>
+    </view>
   </view>
 </template>
 
@@ -66,6 +56,13 @@ import { getVideoList } from '@/services/video'
 
 const videos = ref([])
 const loading = ref(true)
+
+const coverThemes = [
+  { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '🐱' },
+  { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: '🐕' },
+  { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: '🐾' },
+  { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', icon: '🎾' },
+]
 
 const formatViews = (count) => {
   if (!count) return '0'
@@ -80,10 +77,6 @@ const formatDate = (dateStr) => {
 
 const playVideo = (video) => {
   uni.navigateTo({ url: '/pages/video/play?id=' + video.id })
-}
-
-const onVideoError = (e, video) => {
-  video.url = ''
 }
 
 onShow(async () => {
@@ -103,11 +96,11 @@ onShow(async () => {
 .container {
   background: #f8f9fa;
   min-height: 100vh;
+  padding: 0 24rpx;
 }
 
 .video-list {
-  height: 100vh;
-  padding: 20rpx 24rpx;
+  padding: 20rpx 0;
 }
 
 .loading {
@@ -135,24 +128,16 @@ onShow(async () => {
   height: 280rpx;
 }
 
-.cover-video {
-  width: 100%;
-  height: 100%;
-}
-
 .cover-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.cover-text {
-  font-size: 60rpx;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+.cover-emoji {
+  font-size: 80rpx;
 }
 
 .play-overlay {

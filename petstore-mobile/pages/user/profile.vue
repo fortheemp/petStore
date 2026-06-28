@@ -4,9 +4,9 @@
     <view class="user-card">
       <view class="avatar-wrap">
         <image
-          v-if="userInfo.avatar"
+          v-if="avatarUrl"
           class="avatar"
-          :src="userInfo.avatar"
+          :src="avatarUrl"
           mode="aspectFill"
         />
         <view v-else class="avatar avatar--text">
@@ -95,10 +95,12 @@ import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
 import { getProfile } from '@/services/user'
+import { fixImageUrl } from '@/services/request'
 
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const userInfo = computed(() => userStore.user)
+const avatarUrl = computed(() => fixImageUrl(userInfo.value?.avatar || ''))
 
 const goLogin = () => {
   uni.navigateTo({ url: '/pages/auth/login' })

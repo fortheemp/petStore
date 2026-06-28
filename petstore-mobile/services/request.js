@@ -56,12 +56,11 @@ const request = (options) => {
   })
 }
 
-const API_BASE = 'http://10.171.141.181:8080'
-
 export const fixImageUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http')) return url
-  return API_BASE + url
+  if (_isHttp) return url
+  return BASE_URL.replace(/\/api\/?$/, '') + url
 }
 
 export const get = (url, data) => request({ url, method: 'GET', data })

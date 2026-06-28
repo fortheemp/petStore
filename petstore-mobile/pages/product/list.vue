@@ -48,7 +48,7 @@
           @tap="selectCategory(key)"
         >
           <view class="category-chip__icon" :style="{ background: info.bg }">
-            <text class="category-chip__letter" :style="{ color: info.color }">{{ info.letter }}</text>
+            <image class="category-chip__icon-img" :src="info.icon" mode="aspectFit" />
           </view>
           <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === key }">{{ info.label }}</text>
         </view>
@@ -81,7 +81,13 @@
       >
         <view class="product-card">
           <view class="product-card__img">
-            <view class="product-card__img-placeholder" :style="{ background: getCardBg(item) }">
+            <image
+              v-if="item.image"
+              class="product-card__img-real"
+              :src="fixImageUrl(item.image)"
+              mode="aspectFill"
+            />
+            <view v-else class="product-card__img-placeholder">
               <text class="product-card__img-letter" :style="{ color: getCardColor(item) }">{{ item.name.charAt(0) }}</text>
             </view>
             <view v-if="item.fastDelivery" class="product-card__badge product-card__badge--green">
@@ -130,21 +136,22 @@ import { ref, computed } from 'vue'
 import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { useCartStore } from '@/stores/cart'
 import { getProducts, invalidateProductCache } from '@/services/product'
+import { fixImageUrl } from '@/services/request'
 
 const categoryMap = {
-  dogs: { label: '狗狗', letter: '犬', color: '#1c49c2', bg: '#f0f4ff' },
-  cats: { label: '猫咪', letter: '猫', color: '#ff6c10', bg: '#fff5eb' },
-  fish: { label: '水族', letter: '鱼', color: '#00a651', bg: '#e6f7ee' },
-  birds: { label: '鸟类', letter: '鸟', color: '#9c27b0', bg: '#f3e5f5' },
-  small: { label: '小宠', letter: '宠', color: '#e91e63', bg: '#fce4ec' },
+  dogs: { label: '狗狗', icon: '/static/icons/cat-dogs.png', bg: 'rgba(255,108,16,0.07)' },
+  cats: { label: '猫咪', icon: '/static/icons/cat-cats.png', bg: 'rgba(139,92,246,0.07)' },
+  fish: { label: '水族', icon: '/static/icons/cat-fish.png', bg: 'rgba(28,73,194,0.07)' },
+  birds: { label: '鸟类', icon: '/static/icons/cat-birds.png', bg: 'rgba(0,166,81,0.07)' },
+  small: { label: '小宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
 }
 
 const supplySubMap = {
-  royal: { label: '皇家', letter: '皇', color: '#1c49c2', bg: '#f0f4ff' },
-  orijen: { label: '渴望', letter: '渴', color: '#ff6c10', bg: '#fff5eb' },
-  sen: { label: '森森', letter: '森', color: '#00a651', bg: '#e6f7ee' },
-  cute: { label: '喵星人', letter: '喵', color: '#e91e63', bg: '#fce4ec' },
-  love: { label: '爱宠', letter: '爱', color: '#9c27b0', bg: '#f3e5f5' },
+  royal: { label: '皇家', icon: '/static/icons/cat-dogs.png', bg: 'rgba(255,108,16,0.07)' },
+  orijen: { label: '渴望', icon: '/static/icons/cat-cats.png', bg: 'rgba(139,92,246,0.07)' },
+  sen: { label: '森森', icon: '/static/icons/cat-fish.png', bg: 'rgba(28,73,194,0.07)' },
+  cute: { label: '喵星人', icon: '/static/icons/cat-cats.png', bg: 'rgba(0,166,81,0.07)' },
+  love: { label: '爱宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
 }
 
 const currentCategoryMap = computed(() => {
@@ -349,9 +356,9 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
   align-items: center;
   justify-content: center;
 }
-.category-chip__letter {
-  font-size: 22rpx;
-  font-weight: 700;
+.category-chip__icon-img {
+  width: 28rpx;
+  height: 28rpx;
 }
 .category-chip__text {
   font-size: 26rpx;
@@ -412,16 +419,23 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
   background: #fff;
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .product-card__img {
   position: relative;
   padding: 16rpx;
+  background: #f8f9fa;
+}
+.product-card__img-real {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12rpx;
 }
 .product-card__img-placeholder {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 12rpx;
+  background: linear-gradient(135deg, #e8edf5 0%, #d5dce8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -429,14 +443,14 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
 .product-card__img-letter {
   font-size: 56rpx;
   font-weight: 700;
-  opacity: 0.35;
+  opacity: 0.25;
 }
 .product-card__badge {
   position: absolute;
   top: 16rpx;
   left: 16rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
 }
 .product-card__badge--green {
   background: #e6f7ee;
@@ -508,7 +522,7 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
 }
 .product-card__action {
   width: 100%;
-  padding: 14rpx 0;
+  padding: 16rpx 0;
   background: linear-gradient(135deg, #ff6c10, #ff8533);
   border-radius: 12rpx;
   display: flex;

@@ -49,16 +49,9 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onShow } from '@dcloudio/uni-app'
 import { getVideoById } from '@/services/video'
-
-const IMG_BASE = 'http://10.171.141.181:8080'
-
-function fixImageUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return IMG_BASE + url
-}
+import { fixImageUrl } from '@/services/request'
 
 const video = ref(null)
 const videoUrl = ref('')
@@ -80,14 +73,20 @@ const goProduct = () => {
   }
 }
 
-onLoad(async (query) => {
-  const id = Number(query?.id)
+let firstShow = true
+onShow(async () => {
+  if (!firstShow) return
+  firstShow = false
+  const pages = getCurrentPages()
+  const page = pages[pages.length - 1]
+  const opts = page?.$page?.options || page?.options || {}
+  const id = Number(opts.id)
   if (!id) return
   try {
     const res = await getVideoById(id)
     if (res) {
       video.value = res
-      videoUrl.value = res.url || ''
+      videoUrl.value = fixImageUrl(res.url || '')
     }
   } catch {}
 })
