@@ -12,11 +12,11 @@
 
     <!-- Cart list -->
     <view v-else class="cart-list">
-      <view class="cart-item" v-for="item in cart.items" :key="item.productId + item.spec">
+      <view class="cart-item" v-for="item in cart.items" :key="item.id">
         <image class="item-image" :src="item.image" mode="aspectFill" />
         <view class="item-info">
           <text class="item-name">{{ item.name }}</text>
-          <text class="item-spec">{{ item.spec }}</text>
+          <text class="item-spec">标准款</text>
           <view class="item-bottom">
             <text class="item-price">¥{{ item.price }}</text>
             <view class="quantity-control">
@@ -64,19 +64,20 @@ watch(() => cart.totalItems, updateTitle)
 
 // Also refresh title when page is shown (e.g. returning from product detail)
 onShow(() => {
+  cart.loadCart()
   updateTitle()
 })
 
 const onMinus = (item) => {
   if (item.quantity <= 1) {
-    cart.removeItem(item.productId, item.spec)
+    cart.removeItem(item.id)
   } else {
-    cart.updateQuantity(item.productId, item.spec, item.quantity - 1)
+    cart.updateQuantity(item.id, item.quantity - 1)
   }
 }
 
 const onPlus = (item) => {
-  cart.updateQuantity(item.productId, item.spec, item.quantity + 1)
+  cart.updateQuantity(item.id, item.quantity + 1)
 }
 
 const onRemove = (item) => {
@@ -85,7 +86,7 @@ const onRemove = (item) => {
     content: '确定删除该商品吗？',
     success: (res) => {
       if (res.confirm) {
-        cart.removeItem(item.productId, item.spec)
+        cart.removeItem(item.id)
       }
     },
   })

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProductById, getRelatedProducts } from '@/api/product'
 import { useCartStore } from '@/stores/cart'
@@ -81,8 +81,10 @@ const fetchProduct = async () => {
   }
 }
 
-const decreaseQty = () => { if (quantity.value > 1) quantity-- }
-const increaseQty = () => { if (quantity.value < product.value?.stock) quantity++ }
+const isSoldOut = computed(() => product.value?.stock === 0)
+
+const decreaseQty = () => { if (quantity.value > 1) quantity.value-- }
+const increaseQty = () => { if (quantity.value < product.value?.stock) quantity.value++ }
 
 const handleAddToCart = () => {
   if (!selectedSpec.value) { ElMessage.warning('请选择规格'); return }
@@ -295,16 +297,17 @@ onMounted(fetchProduct)
                 <span class="qty-value">{{ quantity }}</span>
                 <button class="qty-btn" :disabled="quantity >= product.stock" @click="increaseQty">+</button>
               </div>
-              <span class="stock-text">库存 {{ product.stock }} 件</span>
+              <span v-if="isSoldOut" class="stock-text stock-text--soldout">已售罄</span>
+              <span v-else class="stock-text">库存 {{ product.stock }} 件</span>
             </div>
 
             <!-- 操作按钮 -->
             <div class="product-info__actions">
-              <button class="action-btn action-btn--cart" @click="handleAddToCart">
+              <button class="action-btn action-btn--cart" :disabled="isSoldOut" @click="handleAddToCart">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                加入购物车
+                {{ isSoldOut ? '已售罄' : '加入购物车' }}
               </button>
-              <button class="action-btn action-btn--buy" @click="handleBuyNow">立即购买</button>
+              <button class="action-btn action-btn--buy" :disabled="isSoldOut" @click="handleBuyNow">{{ isSoldOut ? '已售罄' : '立即购买' }}</button>
             </div>
           </div>
         </div>
@@ -768,6 +771,7 @@ onMounted(fetchProduct)
 }
 
 .stock-text { font-size: 1.3rem; color: #999; }
+.stock-text--soldout { color: #e74c3c; font-weight: 600; }
 
 /* 活体宠物提示 */
 .pet-only-notice {
@@ -812,6 +816,7 @@ onMounted(fetchProduct)
 }
 .action-btn--cart:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 108, 16, 0.4); }
 .action-btn--cart:active { transform: scale(0.98) translateY(0); }
+.action-btn--cart:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
 
 .action-btn--buy {
   background: linear-gradient(135deg, #c2185b 0%, #a02040 100%);
@@ -820,6 +825,7 @@ onMounted(fetchProduct)
 }
 .action-btn--buy:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(160, 32, 64, 0.4); }
 .action-btn--buy:active { transform: scale(0.98) translateY(0); }
+.action-btn--buy:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
 
 /* ========== 标签页 ========== */
 .tabs-section {

@@ -1,4 +1,5 @@
 <template>
+  <view class="root">
   <view class="container">
     <!-- Status Bar -->
     <view class="status-bar">
@@ -27,6 +28,24 @@
     <!-- Cancelled Banner -->
     <view v-if="order.status === -1 || order.status === 5" class="cancelled-banner">
       <text class="cancelled-text">订单已取消</text>
+    </view>
+
+    <!-- 退单状态提示 -->
+    <view v-if="order.status === -2" class="refund-banner refund-banner--pending">
+      <text class="refund-banner__text">退单申请审核中</text>
+      <text v-if="order.refundReason" class="refund-banner__reason">原因：{{ order.refundReason }}</text>
+    </view>
+    <view v-if="order.status === -3" class="refund-banner refund-banner--success">
+      <text class="refund-banner__text">退单成功</text>
+      <text v-if="order.refundReason" class="refund-banner__reason">原因：{{ order.refundReason }}</text>
+    </view>
+    <view v-if="order.status === -4" class="refund-banner refund-banner--admin">
+      <text class="refund-banner__text">管理员已退单</text>
+      <text v-if="order.refundReason" class="refund-banner__reason">原因：{{ order.refundReason }}</text>
+    </view>
+    <view v-if="(order.status === 2 || order.status === 3) && order.refundReason" class="refund-banner refund-banner--rejected">
+      <text class="refund-banner__text">退单被拒绝</text>
+      <text class="refund-banner__reason">原因：{{ order.refundReason }}</text>
     </view>
 
     <!-- Address Section -->
@@ -166,7 +185,7 @@
     </view>
 
     <!-- Action Buttons -->
-    <view class="footer" v-if="order.status === 1">
+    <view class="footer" v-if="order.status === 0">
       <view class="cancel-btn" @tap="cancelOrder">
         <text class="cancel-btn-text">取消订单</text>
       </view>
@@ -174,9 +193,43 @@
         <text class="pay-btn-text">去付款</text>
       </view>
     </view>
-    <view class="footer" v-else-if="order.status === 3">
+    <view class="footer" v-else-if="order.status === 2">
+      <view class="refund-btn" @tap="openRefundDialog">
+        <text class="refund-btn-text">申请退单</text>
+      </view>
       <view class="confirm-btn" @tap="confirmReceive">
         <text class="confirm-btn-text">确认收货</text>
+      </view>
+    </view>
+    <view class="footer" v-else-if="order.status === 3 && !order.reviewed">
+      <view class="refund-btn" @tap="openRefundDialog">
+        <text class="refund-btn-text">申请退单</text>
+      </view>
+      <view class="pay-btn" @tap="initReview">
+        <text class="pay-btn-text">写评价</text>
+      </view>
+    </view>
+  </view>
+
+    <!-- 退单原因弹窗 -->
+    <view v-if="showRefundDialog" class="dialog-mask" @tap.self="showRefundDialog = false">
+      <view class="dialog">
+        <text class="dialog__title">申请退单</text>
+        <text class="dialog__hint">请填写退单原因，提交后等待管理员审核。</text>
+        <textarea
+          class="dialog__textarea"
+          v-model="refundReason"
+          placeholder="请输入退单原因（可不填）"
+          :maxlength="200"
+        ></textarea>
+        <view class="dialog__actions">
+          <view class="dialog__btn dialog__btn--cancel" @tap="showRefundDialog = false">
+            <text class="dialog__btn-text">取消</text>
+          </view>
+          <view class="dialog__btn dialog__btn--confirm" @tap="submitRefund">
+            <text class="dialog__btn-text dialog__btn-text--white">提交申请</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -185,18 +238,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-
-const mockAddresses = [
-  { id: 1, name: '张三', phone: '13800138000', province: '北京市', city: '北京市', district: '朝阳区', detail: '宠物大道100号1栋1单元101', isDefault: true },
-]
-
-const mockOrders = [
-  { id: 1, orderNo: 'PS20251220001', status: 1, statusText: '待付款', items: [{ productId: 1, name: '皇家小型犬成犬粮 2kg', price: 159, quantity: 1, spec: '2kg 标准装' }], goodsTotal: 159, freight: 0, totalPrice: 159, createTime: '2025-12-20 14:30:00' },
-  { id: 2, orderNo: 'PS20251218002', status: 2, statusText: '待发货', items: [{ productId: 2, name: '渴望六种鱼猫粮 5.4kg', price: 428, quantity: 1, spec: '5.4kg 标准装' }], goodsTotal: 428, freight: 0, totalPrice: 428, createTime: '2025-12-18 10:15:00', payMethod: '微信支付' },
-  { id: 3, orderNo: 'PS20251215003', status: 3, statusText: '待收货', items: [{ productId: 12, name: '猫砂豆腐砂活性炭 6L', price: 29.9, quantity: 2, spec: '标准款' }, { productId: 9, name: '猫咪自动饮水机', price: 79, quantity: 1, spec: '标准款' }], goodsTotal: 138.8, freight: 0, totalPrice: 138.8, createTime: '2025-12-15 09:00:00', payMethod: '支付宝' },
-  { id: 4, orderNo: 'PS20251210004', status: 4, statusText: '已完成', items: [{ productId: 4, name: '猫抓板瓦楞纸耐磨款', price: 29.9, quantity: 3, spec: '标准款' }], goodsTotal: 89.7, freight: 0, totalPrice: 89.7, createTime: '2025-12-10 16:45:00', payMethod: '微信支付', reviewed: true },
-  { id: 5, orderNo: 'PS20251205005', status: 4, statusText: '已完成', items: [{ productId: 22, name: '柯基犬幼犬 2月龄 已驱虫', price: 2800, quantity: 1, spec: '标准款' }], goodsTotal: 2800, freight: 0, totalPrice: 2800, createTime: '2025-12-05 11:20:00', payMethod: '支付宝', reviewed: false },
-]
+import { getOrderDetail, cancelOrder as apiCancelOrder, payOrder as apiPayOrder, confirmOrder as apiConfirmOrder, reviewOrder as apiReviewOrder, refundOrder as apiRefundOrder } from '@/services/order'
 
 const order = ref({
   id: 0, orderNo: '', status: 0, address: null, items: [],
@@ -216,8 +258,8 @@ const currentStepIndex = computed(() => {
 })
 
 const statusText = computed(() => {
-  const map = { 1: '待付款', 2: '待发货', 3: '待收货', 4: '已完成', 5: '已取消' }
-  return map[order.value.status] || '未知状态'
+  const map = { 0: '待付款', 1: '待发货', 2: '待收货', 3: '待评价', 4: '已完成', '-1': '已取消', '-2': '退款申请中', '-3': '退款成功', '-4': '管理员退单' }
+  return map[String(order.value.status)] || '未知'
 })
 
 // Review
@@ -238,89 +280,105 @@ const setRating = (productId, rating) => {
   reviewForm.value[productId].rating = rating
 }
 
-const submitReview = () => {
+const formatDate = (iso) => {
+  if (!iso) return '-'
+  return iso
+}
+
+const loadOrder = async (orderId) => {
+  try {
+    const res = await getOrderDetail(orderId)
+    if (res) order.value = res
+  } catch {}
+}
+
+const cancelOrder = async () => {
+  uni.showModal({
+    title: '提示', content: '确定取消订单？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await apiCancelOrder(order.value.id)
+          order.value.status = -1
+          uni.showToast({ title: '订单已取消', icon: 'success' })
+        } catch {}
+      }
+    }
+  })
+}
+
+const payOrder = async () => {
+  uni.showModal({
+    title: '提示', content: `确认支付 ¥${Number(order.value.totalPrice).toFixed(2)}？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await apiPayOrder(order.value.id)
+          await loadOrder(order.value.id)
+          uni.showToast({ title: '支付成功', icon: 'success' })
+        } catch {}
+      }
+    }
+  })
+}
+
+const confirmReceive = async () => {
+  uni.showModal({
+    title: '提示', content: '确认已收到货物？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await apiConfirmOrder(order.value.id)
+          await loadOrder(order.value.id)
+          uni.showToast({ title: '确认收货成功', icon: 'success' })
+        } catch {}
+      }
+    }
+  })
+}
+
+// 退单相关
+const showRefundDialog = ref(false)
+const refundReason = ref('')
+
+const openRefundDialog = () => {
+  refundReason.value = ''
+  showRefundDialog.value = true
+}
+
+const submitRefund = async () => {
+  if (!order.value) return
+  try {
+    await apiRefundOrder(order.value.id, { reason: refundReason.value })
+    await loadOrder(order.value.id)
+    showRefundDialog.value = false
+    uni.showToast({ title: '退单申请已提交', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: '退单申请失败', icon: 'none' })
+  }
+}
+
+const submitReview = async () => {
   const reviews = Object.entries(reviewForm.value)
   const hasEmpty = reviews.some(([, data]) => data.rating === 0)
   if (hasEmpty) {
     uni.showToast({ title: '请为每个商品选择评分', icon: 'none' })
     return
   }
-  order.value.reviewed = true
-  existingReviews.value = reviews.map(([productId, data]) => ({
-    productId: Number(productId), rating: data.rating, content: data.content,
-  }))
-  updateStoredOrder()
-  showReviewForm.value = false
-  uni.showToast({ title: '评价提交成功', icon: 'success' })
-}
-
-const formatDate = (iso) => {
-  if (!iso) return '-'
-  return iso
-}
-
-const loadOrder = (orderId) => {
-  const storedOrders = uni.getStorageSync('petstore_orders') || []
-  const found = storedOrders.find(o => o.id === orderId)
-  if (found) {
-    if (!found.address) found.address = mockAddresses[0] || null
-    order.value = found
-    return
-  }
-  const mockFound = mockOrders.find(o => o.id === orderId)
-  if (mockFound) {
-    order.value = { ...mockFound, address: mockFound.address || mockAddresses[0] }
-  }
-}
-
-const cancelOrder = () => {
-  uni.showModal({
-    title: '提示', content: '确定取消订单？',
-    success: (res) => {
-      if (res.confirm) {
-        order.value.status = 5
-        updateStoredOrder()
-        uni.showToast({ title: '订单已取消', icon: 'success' })
-      }
-    }
-  })
-}
-
-const payOrder = () => {
-  uni.showModal({
-    title: '提示', content: `确认支付 ¥${order.value.totalPrice.toFixed(2)}？`,
-    success: (res) => {
-      if (res.confirm) {
-        order.value.status = 2
-        order.value.payMethod = '微信支付'
-        order.value.payTime = new Date().toLocaleString('zh-CN')
-        updateStoredOrder()
-        uni.showToast({ title: '支付成功', icon: 'success' })
-      }
-    }
-  })
-}
-
-const confirmReceive = () => {
-  uni.showModal({
-    title: '提示', content: '确认已收到货物？',
-    success: (res) => {
-      if (res.confirm) {
-        order.value.status = 4
-        updateStoredOrder()
-        uni.showToast({ title: '确认收货成功', icon: 'success' })
-      }
-    }
-  })
-}
-
-const updateStoredOrder = () => {
-  const storedOrders = uni.getStorageSync('petstore_orders') || []
-  const idx = storedOrders.findIndex(o => o.id === order.value.id)
-  if (idx !== -1) {
-    storedOrders[idx] = { ...order.value }
-    uni.setStorageSync('petstore_orders', storedOrders)
-  }
+  try {
+    await apiReviewOrder(order.value.id, {
+      userId: uni.getStorageSync('petstore_user') ? JSON.parse(uni.getStorageSync('petstore_user')).id : 0,
+      reviews: reviews.map(([productId, data]) => ({
+        productId: Number(productId), rating: data.rating, content: data.content,
+      })),
+    })
+    order.value.reviewed = true
+    existingReviews.value = reviews.map(([productId, data]) => ({
+      productId: Number(productId), rating: data.rating, content: data.content,
+    }))
+    showReviewForm.value = false
+    uni.showToast({ title: '评价提交成功', icon: 'success' })
+  } catch {}
 }
 
 onLoad((query) => {
@@ -330,6 +388,11 @@ onLoad((query) => {
 </script>
 
 <style scoped>
+.root {
+  position: relative;
+  min-height: 100vh;
+}
+
 .container {
   background: #f8f9fa;
   min-height: 100vh;
@@ -812,5 +875,141 @@ onLoad((query) => {
   color: #fff;
   font-size: 28rpx;
   font-weight: 600;
+}
+
+/* Refund */
+.refund-btn {
+  padding: 0 40rpx;
+  height: 64rpx;
+  border: 2rpx solid #e74c3c;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refund-btn-text {
+  color: #e74c3c;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.refund-banner {
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.refund-banner--pending { background: #fff3e0; }
+.refund-banner--success { background: #e6f9ee; }
+.refund-banner--admin { background: #fff0f0; }
+.refund-banner--rejected { background: #fff3f0; }
+
+.refund-banner__text {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.refund-banner--pending .refund-banner__text { color: #e65100; }
+.refund-banner--success .refund-banner__text { color: #00a651; }
+.refund-banner--admin .refund-banner__text { color: #e74c3c; }
+.refund-banner--rejected .refund-banner__text { color: #e74c3c; }
+
+.refund-banner__reason {
+  font-size: 24rpx;
+  opacity: 0.8;
+}
+
+.refund-banner--pending .refund-banner__reason { color: #e65100; }
+.refund-banner--success .refund-banner__reason { color: #00a651; }
+.refund-banner--admin .refund-banner__reason { color: #e74c3c; }
+.refund-banner--rejected .refund-banner__reason { color: #e74c3c; }
+
+/* Dialog */
+.dialog-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 48rpx 40rpx;
+  width: 600rpx;
+  max-width: 85vw;
+}
+
+.dialog__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #121212;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.dialog__hint {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.dialog__textarea {
+  width: 100%;
+  min-height: 180rpx;
+  border: 2rpx solid #ddd;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 26rpx;
+  box-sizing: border-box;
+  background: #fff;
+  outline: none;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.dialog__btn {
+  padding: 16rpx 40rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog__btn--cancel {
+  background: #f5f5f5;
+}
+
+.dialog__btn--confirm {
+  background: #e74c3c;
+}
+
+.dialog__btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #666;
+}
+
+.dialog__btn-text--white {
+  color: #fff;
 }
 </style>

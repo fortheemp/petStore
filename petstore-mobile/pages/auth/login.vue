@@ -49,17 +49,6 @@
         </view>
       </view>
 
-      <view class="auth-form__divider">
-        <view class="divider-line"></view>
-        <text class="divider-text">或者</text>
-        <view class="divider-line"></view>
-      </view>
-
-      <view class="auth-form__wechat" @tap="wechatLogin">
-        <text class="wechat-icon">微</text>
-        <text class="wechat-text">使用微信登录</text>
-      </view>
-
       <view class="auth-card__footer">
         <text class="footer-text">还没有账户？</text>
         <text class="footer-link" @tap="goToRegister">立即注册</text>
@@ -71,8 +60,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useCartStore } from '@/stores/cart'
+import { login as loginApi } from '@/services/user'
 
 const userStore = useUserStore()
+const cartStore = useCartStore()
 const loginForm = ref({ username: '', password: '', remember: false })
 const loading = ref(false)
 const showPassword = ref(false)
@@ -105,22 +97,23 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    const result = await userStore.login(loginForm.value)
-    if (result.success) {
-      if (loginForm.value.remember) {
-        uni.setStorageSync('petstore_rememberedUser', loginForm.value.username)
-      } else {
-        uni.removeStorageSync('petstore_rememberedUser')
-      }
-      uni.showToast({ title: '登录成功', icon: 'success' })
-      setTimeout(() => {
-        uni.switchTab({ url: '/pages/index/index' })
-      }, 1000)
+    const { token, user } = await loginApi({
+      username: loginForm.value.username.trim(),
+      password: loginForm.value.password,
+    })
+    userStore.login(token, user)
+    cartStore.loadCart()
+    if (loginForm.value.remember) {
+      uni.setStorageSync('petstore_rememberedUser', loginForm.value.username)
     } else {
-      errorMsg.value = result.message || '登录失败'
+      uni.removeStorageSync('petstore_rememberedUser')
     }
-  } catch {
-    errorMsg.value = '登录失败，请稍后重试'
+    uni.showToast({ title: '登录成功', icon: 'success' })
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/index/index' })
+    }, 1000)
+  } catch (err) {
+    errorMsg.value = err.message || '登录失败'
   } finally {
     loading.value = false
   }
@@ -128,10 +121,6 @@ const handleLogin = async () => {
 
 const forgotPassword = () => {
   uni.showToast({ title: '功能开发中...', icon: 'none' })
-}
-
-const wechatLogin = () => {
-  uni.showToast({ title: '微信登录开发中...', icon: 'none' })
 }
 
 const goToRegister = () => {
@@ -294,47 +283,6 @@ const goToRegister = () => {
   color: #fff;
   font-size: 32rpx;
   font-weight: 600;
-}
-
-.auth-form__divider {
-  display: flex;
-  align-items: center;
-  margin: 48rpx 0;
-  gap: 24rpx;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1rpx;
-  background: #eee;
-}
-
-.divider-text {
-  font-size: 26rpx;
-  color: #999;
-}
-
-.auth-form__wechat {
-  width: 100%;
-  height: 96rpx;
-  background: #07c160;
-  border-radius: 16rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-}
-
-.wechat-icon {
-  font-size: 24rpx;
-  color: #fff;
-  font-weight: 700;
-}
-
-.wechat-text {
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 500;
 }
 
 .auth-card__footer {

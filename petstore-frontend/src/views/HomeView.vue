@@ -14,12 +14,20 @@ const hotProducts = ref([])
 const shops = ref([])
 const loading = ref(true)
 
+const categorySvgPaths = {
+  dogs: '<path d="M11.25 16.25h1.5L12 17z"/><path d="M16 14v.5"/><path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309"/><path d="M8 14v.5"/><path d="M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"/>',
+  cats: '<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>',
+  fish: '<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/><path d="M10.46 7.26C10.2 5.88 9.17 4.24 8 3h5.8a2 2 0 0 1 1.98 1.67l.23 1.4"/><path d="m16.01 17.93-.23 1.4A2 2 0 0 1 13.8 21H9.5a5.96 5.96 0 0 0 1.49-3.98"/>',
+  birds: '<path d="M16 7h.01"/><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"/><path d="m20 7 2 .5-2 .5"/><path d="M10 18v3"/><path d="M14 17.75V21"/><path d="M7 18a6 6 0 0 0 3.84-10.61"/>',
+  small: '<path d="M13 16a3 3 0 0 1 2.24 5"/><path d="M18 12h.01"/><path d="M18 21h-8a4 4 0 0 1-4-4 7 7 0 0 1 7-7h.2L9.6 6.4a1 1 0 1 1 2.8-2.8L15.8 7h.2c3.3 0 6 2.7 6 6v1a2 2 0 0 1-2 2h-1a3 3 0 0 0-3 3"/><path d="M20 8.54V4a2 2 0 1 0-4 0v3"/><path d="M7.612 12.524a3 3 0 1 0-1.6 4.3"/>',
+}
+
 const petCategories = ref([
-  { name: '狗狗', key: 'dogs', productType: 'pet', color: '#ff6c10' },
-  { name: '猫咪', key: 'cats', productType: 'pet', color: '#8b5cf6' },
-  { name: '水族', key: 'fish', productType: 'supply', color: '#1c49c2' },
-  { name: '鸟类', key: 'birds', productType: 'supply', color: '#00a651' },
-  { name: '小宠', key: 'small', productType: 'supply', color: '#e67e22' },
+  { name: '狗狗', key: 'dogs', productType: 'pet' },
+  { name: '猫咪', key: 'cats', productType: 'pet' },
+  { name: '水族', key: 'fish', productType: 'supply' },
+  { name: '鸟类', key: 'birds', productType: 'supply' },
+  { name: '小宠', key: 'small', productType: 'supply' },
 ])
 
 const loadNearbyShops = async (lng, lat) => {
@@ -157,54 +165,10 @@ const formatPrice = (p) => Number(p).toFixed(0)
             class="category-card"
             @click="goToCategory(cat)"
           >
-            <span class="category-card__icon" :style="{ background: cat.color + '12', color: cat.color }">
-              <!-- 狗 -->
-              <svg v-if="cat.key === 'dogs'" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="24" cy="26" r="12"/>
-                <path d="M12 14c-1-4 0-9 3-11 1.5 2 3 3 5 3h8c2 0 3.5-1 5-3 3 2 4 7 3 11"/>
-                <circle cx="19" cy="24" r="1.5" fill="currentColor"/>
-                <circle cx="29" cy="24" r="1.5" fill="currentColor"/>
-                <ellipse cx="24" cy="29" rx="2" ry="1.5" fill="currentColor"/>
-                <path d="M21 32c1.5 1.5 4.5 1.5 6 0"/>
-              </svg>
-              <!-- 猫 -->
-              <svg v-else-if="cat.key === 'cats'" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="24" cy="28" r="12"/>
-                <path d="M14 16l-2-10 7 8"/>
-                <path d="M34 16l2-10-7 8"/>
-                <circle cx="19" cy="26" r="1.5" fill="currentColor"/>
-                <circle cx="29" cy="26" r="1.5" fill="currentColor"/>
-                <ellipse cx="24" cy="30" rx="1.5" ry="1" fill="currentColor"/>
-                <path d="M22 32c1 1.2 3 1.2 4 0"/>
-              </svg>
-              <!-- 鱼 -->
-              <svg v-else-if="cat.key === 'fish'" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 24c4-8 12-10 18-10 4 0 8 1 10 3-3 3-5 7-5 10s2 7 5 10c-2 2-6 3-10 3-6 0-14-2-18-10z"/>
-                <circle cx="18" cy="24" r="2" fill="currentColor"/>
-                <path d="M36 18c4-2 8-1 10 1-2 4-4 7-6 9"/>
-                <path d="M36 30c4 2 8 1 10-1"/>
-              </svg>
-              <!-- 鸟 -->
-              <svg v-else-if="cat.key === 'birds'" width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M24 8c-5 0-10 4-10 10 0 2 .5 4 1.5 5.5C12 25 10 28 10 32h28c0-4-2-7-5.5-8.5 1-1.5 1.5-3.5 1.5-5.5 0-6-5-10-10-10z"/>
-                <circle cx="20" cy="19" r="1.5" fill="currentColor"/>
-                <path d="M24 23v3"/>
-                <path d="M18 36h12"/>
-                <path d="M20 32h8"/>
-              </svg>
-              <!-- 小宠 -->
-              <svg v-else width="40" height="40" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="24" cy="30" r="10"/>
-                <path d="M18 10c-1-5 1-9 4-10 0 3 1 6 2 7"/>
-                <path d="M30 10c1-5-1-9-4-10 0 3-1 6-2 7"/>
-                <circle cx="20" cy="28" r="1.5" fill="currentColor"/>
-                <circle cx="28" cy="28" r="1.5" fill="currentColor"/>
-                <ellipse cx="24" cy="32" rx="1.5" ry="1" fill="currentColor"/>
-                <path d="M22 34c1 1 3 1 4 0"/>
-              </svg>
+            <span class="category-card__icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="categorySvgPaths[cat.key]"></svg>
             </span>
             <span class="category-card__name">{{ cat.name }}</span>
-            <span class="category-card__count">{{ categoryCounts[cat.key] || 0 }}+ 商品</span>
           </button>
         </div>
       </div>
@@ -569,49 +533,46 @@ const formatPrice = (p) => Number(p).toFixed(0)
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-3);
-  padding: var(--spacing-8) var(--spacing-4);
-  background-color: var(--color-bg-card);
+  padding: var(--spacing-6) var(--spacing-4);
+  background: transparent;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  border: 2px solid transparent;
+  border: none;
   transition: all var(--transition-normal);
 }
 
 .category-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-brand-blue);
+  transform: translateY(-2px);
 }
 
 .category-card:active {
-  transform: translateY(-2px) scale(0.97);
-  box-shadow: var(--shadow-sm);
+  transform: scale(0.95);
 }
 
 .category-card__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 7.2rem;
-  height: 7.2rem;
+  width: 6.4rem;
+  height: 6.4rem;
   border-radius: var(--radius-full);
+  background: #eef2ff;
+  color: var(--color-brand-blue);
   transition: transform var(--transition-normal);
 }
 
 .category-card:hover .category-card__icon {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .category-card__name {
-  font-size: var(--text-body-lg);
+  font-size: var(--text-body-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .category-card__count {
-  font-size: var(--text-caption);
-  color: var(--color-text-secondary);
+  display: none;
 }
 
 /* ========== 热门商品 ========== */

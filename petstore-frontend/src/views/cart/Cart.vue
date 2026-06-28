@@ -34,7 +34,15 @@ const handleDelete = (item) => {
 }
 
 // 去结算
+const hasOutOfStockChecked = computed(() =>
+  cart.checkedItems.some((item) => item.stock === 0)
+)
+
 const handleCheckout = () => {
+  if (hasOutOfStockChecked.value) {
+    ElMessage.warning('有已售罄商品，请先取消勾选')
+    return
+  }
   router.push('/checkout')
 }
 </script>
@@ -84,6 +92,7 @@ const handleCheckout = () => {
           >
             <el-checkbox
               :model-value="item.checked"
+              :disabled="item.stock === 0"
               @change="cart.toggleChecked(item.id)"
             />
 
@@ -102,6 +111,7 @@ const handleCheckout = () => {
               <router-link :to="`/products/${item.productId}`" class="cart-item__title">
                 {{ item.name }}
               </router-link>
+              <span v-if="item.stock === 0" class="cart-item__soldout">已售罄</span>
               <p v-if="item.spec" class="cart-item__spec">规格：{{ item.spec.value }}</p>
             </div>
 
@@ -114,9 +124,9 @@ const handleCheckout = () => {
             <!-- 数量 -->
             <div class="cart-item__quantity">
               <div class="quantity-selector">
-                <button class="qty-btn" :disabled="item.quantity <= 1" @click="decreaseQty(item)">-</button>
+                <button class="qty-btn" :disabled="item.quantity <= 1 || item.stock === 0" @click="decreaseQty(item)">-</button>
                 <span class="qty-value">{{ item.quantity }}</span>
-                <button class="qty-btn" :disabled="item.quantity >= item.stock" @click="increaseQty(item)">+</button>
+                <button class="qty-btn" :disabled="item.quantity >= item.stock || item.stock === 0" @click="increaseQty(item)">+</button>
               </div>
             </div>
 
@@ -164,7 +174,7 @@ const handleCheckout = () => {
 
           <button
             class="cart-summary__checkout"
-            :disabled="cart.checkedCount === 0"
+            :disabled="cart.checkedCount === 0 || hasOutOfStockChecked"
             @click="handleCheckout"
           >
             去结算
@@ -274,6 +284,18 @@ const handleCheckout = () => {
   margin-bottom: 0.8rem;
 }
 .cart-item__title:hover { color: var(--color-brand-blue); }
+
+.cart-item__soldout {
+  display: inline-block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: #e74c3c;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.4rem;
+  margin-left: 0.8rem;
+  vertical-align: middle;
+}
 
 .cart-item__spec {
   font-size: 1.3rem;

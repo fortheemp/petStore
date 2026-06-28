@@ -1,80 +1,117 @@
 <template>
   <view class="container">
-    <scroll-view scroll-y class="video-list">
-      <view v-if="videos.length > 0">
+    <view class="video-list">
+      <view v-if="loading" class="loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="videos.length > 0">
         <view
           class="video-card"
-          v-for="video in videos"
+          v-for="(video, idx) in videos"
           :key="video.id"
           @tap="playVideo(video)"
         >
           <view class="video-cover">
-            <view class="cover-placeholder">
-              <text class="cover-text">{{ video.title.charAt(0) }}</text>
+            <view
+              class="cover-placeholder"
+              :style="{ background: coverThemes[idx % coverThemes.length].bg }"
+            >
+              <text class="cover-emoji">{{ coverThemes[idx % coverThemes.length].icon }}</text>
             </view>
             <view class="play-overlay">
               <view class="play-btn">
                 <text class="play-icon">▶</text>
               </view>
             </view>
-            <view class="duration-badge">
+            <view class="duration-badge" v-if="video.duration">
               <text class="duration-text">{{ video.duration }}</text>
             </view>
           </view>
           <view class="video-info">
             <text class="video-title">{{ video.title }}</text>
             <view class="video-meta">
-              <text class="views">▶ {{ formatViews(video.views) }}次播放</text>
-              <text class="date">{{ video.date }}</text>
+              <text class="views">▶ {{ formatViews(video.viewCount) }}次播放</text>
+              <text class="date">{{ formatDate(video.createdAt) }}</text>
             </view>
           </view>
         </view>
       </view>
 
       <view v-else class="empty">
-        <text class="empty-icon">-</text>
+        <view class="empty-icon-wrap">
+          <image class="empty-icon-img" src="/static/icons/video-empty.png" mode="aspectFit" />
+        </view>
         <text class="empty-text">暂无视频</text>
         <text class="empty-hint">精彩内容即将上线</text>
       </view>
-    </scroll-view>
-
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-const mockVideos = [
-  { id: 1, title: '柯基犬的快乐日常', cover: '', duration: '03:25', views: 12800, date: '2025-12-20' },
-  { id: 2, title: '猫咪逗猫棒挑战', cover: '', duration: '02:18', views: 8900, date: '2025-12-18' },
-  { id: 3, title: '金毛寻回犬训练教程', cover: '', duration: '05:42', views: 15600, date: '2025-12-15' },
-  { id: 4, title: '仓鼠的迷宫冒险', cover: '', duration: '01:55', views: 6700, date: '2025-12-12' },
-  { id: 5, title: '热带鱼缸造景教程', cover: '', duration: '04:30', views: 4300, date: '2025-12-10' },
+import { onShow } from '@dcloudio/uni-app'
+import { getVideoList } from '@/services/video'
+
+const videos = ref([])
+const loading = ref(true)
+
+const coverThemes = [
+  { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: '🐱' },
+  { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: '🐕' },
+  { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: '🐾' },
+  { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', icon: '🎾' },
 ]
 
-const videos = ref(mockVideos)
-
 const formatViews = (count) => {
-  if (count >= 10000) {
-    return (count / 10000).toFixed(1) + 'w'
-  }
+  if (!count) return '0'
+  if (count >= 10000) return (count / 10000).toFixed(1) + 'w'
   return count.toLocaleString()
 }
 
-const playVideo = (video) => {
-  uni.showToast({ title: '播放: ' + video.title, icon: 'none' })
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  return dateStr.slice(0, 10)
 }
+
+const playVideo = (video) => {
+  uni.navigateTo({ url: '/pages/video/play?id=' + video.id })
+}
+
+onShow(async () => {
+  loading.value = true
+  try {
+    const res = await getVideoList()
+    videos.value = Array.isArray(res) ? res : []
+  } catch {
+    videos.value = []
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <style scoped>
 .container {
   background: #f8f9fa;
   min-height: 100vh;
-  padding-bottom: 160rpx;
+  padding: 0 24rpx;
 }
 
 .video-list {
-  height: 100vh;
-  padding: 20rpx 24rpx;
+  padding: 20rpx 0;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
 }
 
 .video-card {
@@ -88,22 +125,19 @@ const playVideo = (video) => {
 .video-cover {
   position: relative;
   width: 100%;
-  height: 360rpx;
+  height: 280rpx;
 }
 
 .cover-placeholder {
   width: 100%;
   height: 100%;
-  background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.cover-text {
-  font-size: 60rpx;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.06);
+.cover-emoji {
+  font-size: 80rpx;
 }
 
 .play-overlay {
@@ -183,10 +217,20 @@ const playVideo = (video) => {
   padding: 200rpx 0;
 }
 
-.empty-icon {
-  font-size: 60rpx;
+.empty-icon-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 24rpx;
-  color: #ccc;
+}
+
+.empty-icon-img {
+  width: 60rpx;
+  height: 60rpx;
 }
 
 .empty-text {

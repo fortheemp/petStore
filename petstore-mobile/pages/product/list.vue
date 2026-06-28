@@ -48,7 +48,7 @@
           @tap="selectCategory(key)"
         >
           <view class="category-chip__icon" :style="{ background: info.bg }">
-            <text class="category-chip__letter" :style="{ color: info.color }">{{ info.letter }}</text>
+            <image class="category-chip__icon-img" :src="info.icon" mode="aspectFit" />
           </view>
           <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === key }">{{ info.label }}</text>
         </view>
@@ -81,7 +81,13 @@
       >
         <view class="product-card">
           <view class="product-card__img">
-            <view class="product-card__img-placeholder" :style="{ background: getCardBg(item) }">
+            <image
+              v-if="item.image"
+              class="product-card__img-real"
+              :src="fixImageUrl(item.image)"
+              mode="aspectFill"
+            />
+            <view v-else class="product-card__img-placeholder">
               <text class="product-card__img-letter" :style="{ color: getCardColor(item) }">{{ item.name.charAt(0) }}</text>
             </view>
             <view v-if="item.fastDelivery" class="product-card__badge product-card__badge--green">
@@ -127,23 +133,25 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad, onReachBottom } from '@dcloudio/uni-app'
+import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { useCartStore } from '@/stores/cart'
+import { getProducts, invalidateProductCache } from '@/services/product'
+import { fixImageUrl } from '@/services/request'
 
 const categoryMap = {
-  dogs: { label: '狗狗', letter: '犬', color: '#1c49c2', bg: '#f0f4ff' },
-  cats: { label: '猫咪', letter: '猫', color: '#ff6c10', bg: '#fff5eb' },
-  fish: { label: '水族', letter: '鱼', color: '#00a651', bg: '#e6f7ee' },
-  birds: { label: '鸟类', letter: '鸟', color: '#9c27b0', bg: '#f3e5f5' },
-  small: { label: '小宠', letter: '宠', color: '#e91e63', bg: '#fce4ec' },
+  dogs: { label: '狗狗', icon: '/static/icons/cat-dogs.png', bg: 'rgba(255,108,16,0.07)' },
+  cats: { label: '猫咪', icon: '/static/icons/cat-cats.png', bg: 'rgba(139,92,246,0.07)' },
+  fish: { label: '水族', icon: '/static/icons/cat-fish.png', bg: 'rgba(28,73,194,0.07)' },
+  birds: { label: '鸟类', icon: '/static/icons/cat-birds.png', bg: 'rgba(0,166,81,0.07)' },
+  small: { label: '小宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
 }
 
 const supplySubMap = {
-  royal: { label: '皇家', letter: '皇', color: '#1c49c2', bg: '#f0f4ff' },
-  orijen: { label: '渴望', letter: '渴', color: '#ff6c10', bg: '#fff5eb' },
-  sen: { label: '森森', letter: '森', color: '#00a651', bg: '#e6f7ee' },
-  cute: { label: '喵星人', letter: '喵', color: '#e91e63', bg: '#fce4ec' },
-  love: { label: '爱宠', letter: '爱', color: '#9c27b0', bg: '#f3e5f5' },
+  royal: { label: '皇家', icon: '/static/icons/cat-dogs.png', bg: 'rgba(255,108,16,0.07)' },
+  orijen: { label: '渴望', icon: '/static/icons/cat-cats.png', bg: 'rgba(139,92,246,0.07)' },
+  sen: { label: '森森', icon: '/static/icons/cat-fish.png', bg: 'rgba(28,73,194,0.07)' },
+  cute: { label: '喵星人', icon: '/static/icons/cat-cats.png', bg: 'rgba(0,166,81,0.07)' },
+  love: { label: '爱宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
 }
 
 const currentCategoryMap = computed(() => {
@@ -176,57 +184,6 @@ const categoryColors = {
 const getCardBg = (item) => categoryColors[item.category]?.bg || '#f0f4ff'
 const getCardColor = (item) => categoryColors[item.category]?.color || '#1c49c2'
 
-const mockProducts = [
-  { id: 1, name: '皇家小型犬成犬粮 2kg', price: 159, originalPrice: 199, rating: 4.8, reviewCount: 2341, shopName: '皇家宠物旗舰店', category: 'dogs', productType: 'supply', fastDelivery: true, sales: 5600 },
-  { id: 2, name: '渴望六种鱼猫粮 5.4kg', price: 428, originalPrice: 528, rating: 4.9, reviewCount: 1892, shopName: '渴望官方旗舰店', category: 'cats', productType: 'supply', fastDelivery: true, sales: 3200 },
-  { id: 3, name: '小型犬磨牙棒玩具套装', price: 39.9, originalPrice: null, rating: 4.5, reviewCount: 567, shopName: '爱宠生活馆', category: 'dogs', productType: 'supply', fastDelivery: false, sales: 1800 },
-  { id: 4, name: '猫抓板瓦楞纸耐磨款', price: 29.9, originalPrice: 49.9, rating: 4.6, reviewCount: 3201, shopName: '喵星人用品店', category: 'cats', productType: 'supply', fastDelivery: true, sales: 8900 },
-  { id: 5, name: '森森鱼缸超白玻璃 40cm', price: 258, originalPrice: 328, rating: 4.7, reviewCount: 421, shopName: '森森水族旗舰店', category: 'fish', productType: 'supply', fastDelivery: false, sales: 890 },
-  { id: 6, name: '鹦鹉混合鸟粮 1kg', price: 25.8, originalPrice: null, rating: 4.3, reviewCount: 189, shopName: '鸟语花香', category: 'birds', productType: 'supply', fastDelivery: false, sales: 560 },
-  { id: 7, name: '仓鼠笼子亚克力透明别墅', price: 89, originalPrice: 129, rating: 4.4, reviewCount: 734, shopName: '小宠之家', category: 'small', productType: 'supply', fastDelivery: false, sales: 2100 },
-  { id: 8, name: '比瑞吉天然成犬粮 10kg', price: 299, originalPrice: 399, rating: 4.6, reviewCount: 1567, shopName: '皇家宠物旗舰店', category: 'dogs', productType: 'supply', fastDelivery: true, sales: 4300 },
-  { id: 9, name: '猫咪自动饮水机 静音循环', price: 79, originalPrice: 119, rating: 4.7, reviewCount: 2103, shopName: '喵星人用品店', category: 'cats', productType: 'supply', fastDelivery: false, sales: 6700 },
-  { id: 10, name: '热带鱼饲料增色缓沉型 500g', price: 35, originalPrice: null, rating: 4.5, reviewCount: 298, shopName: '森森水族旗舰店', category: 'fish', productType: 'supply', fastDelivery: false, sales: 890 },
-  { id: 11, name: '狗狗牵引绳伸缩可调节 5m', price: 45, originalPrice: 68, rating: 4.4, reviewCount: 892, shopName: '爱宠生活馆', category: 'dogs', productType: 'supply', fastDelivery: false, sales: 3400 },
-  { id: 12, name: '猫砂豆腐砂活性炭 6L', price: 29.9, originalPrice: 39.9, rating: 4.8, reviewCount: 5672, shopName: '喵星人用品店', category: 'cats', productType: 'supply', fastDelivery: true, sales: 12000 },
-  { id: 13, name: '龙鱼专用饲料增色型 200g', price: 58, originalPrice: null, rating: 4.6, reviewCount: 156, shopName: '森森水族旗舰店', category: 'fish', productType: 'supply', fastDelivery: false, sales: 450 },
-  { id: 14, name: '画眉鸟饲料精品配方 500g', price: 32, originalPrice: 45, rating: 4.2, reviewCount: 87, shopName: '鸟语花香', category: 'birds', productType: 'supply', fastDelivery: false, sales: 320 },
-  { id: 15, name: '兔子磨牙草饼天然提摩西', price: 18.9, originalPrice: null, rating: 4.5, reviewCount: 423, shopName: '小宠之家', category: 'small', productType: 'supply', fastDelivery: false, sales: 1500 },
-  { id: 16, name: '中大型犬关节营养膏 120g', price: 89, originalPrice: 128, rating: 4.7, reviewCount: 634, shopName: '皇家宠物旗舰店', category: 'dogs', productType: 'supply', fastDelivery: false, sales: 2800 },
-  { id: 17, name: '猫咪冻干零食鸡肉粒 500g', price: 68, originalPrice: 88, rating: 4.8, reviewCount: 3456, shopName: '渴望官方旗舰店', category: 'cats', productType: 'supply', fastDelivery: true, sales: 7800 },
-  { id: 18, name: '水族箱LED灯全光谱防水', price: 128, originalPrice: 168, rating: 4.5, reviewCount: 234, shopName: '森森水族旗舰店', category: 'fish', productType: 'supply', fastDelivery: false, sales: 670 },
-  { id: 19, name: '金丝雀繁殖箱木质鸟窝', price: 22, originalPrice: null, rating: 4.1, reviewCount: 56, shopName: '鸟语花香', category: 'birds', productType: 'supply', fastDelivery: false, sales: 210 },
-  { id: 20, name: '龙猫专用浴沙 2kg', price: 28, originalPrice: 38, rating: 4.6, reviewCount: 312, shopName: '小宠之家', category: 'small', productType: 'supply', fastDelivery: false, sales: 1200 },
-  { id: 21, name: '英短蓝猫幼猫 3月龄 已疫苗', price: 1200, originalPrice: 1500, rating: 4.9, reviewCount: 42, shopName: '爱宠生活馆', category: 'cats', productType: 'pet', fastDelivery: false, sales: 42 },
-  { id: 22, name: '柯基犬幼犬 2月龄 已驱虫', price: 2800, originalPrice: 3500, rating: 4.8, reviewCount: 28, shopName: '萌宠乐园', category: 'dogs', productType: 'pet', fastDelivery: false, sales: 28 },
-  { id: 23, name: '布偶猫成猫 甜美的蓝眼睛', price: 5500, originalPrice: 6800, rating: 4.9, reviewCount: 15, shopName: '萌宠乐园', category: 'cats', productType: 'pet', fastDelivery: false, sales: 15 },
-  { id: 24, name: '金毛寻回犬幼犬 专业犬舍', price: 3200, originalPrice: 4000, rating: 4.7, reviewCount: 33, shopName: '萌宠乐园', category: 'dogs', productType: 'pet', fastDelivery: false, sales: 33 },
-  { id: 25, name: '荷兰猪幼崽 一对装', price: 60, originalPrice: 80, rating: 4.5, reviewCount: 89, shopName: '小宠之家', category: 'small', productType: 'pet', fastDelivery: false, sales: 89 },
-]
-
-function queryProducts({ page = 1, pageSize = 10, keyword = '', category = '', productType = '', supplyCategory = '', sort = 'default' } = {}) {
-  let list = [...mockProducts]
-  if (keyword) {
-    const kw = keyword.toLowerCase()
-    list = list.filter(p => p.name.toLowerCase().includes(kw))
-  }
-  if (productType) list = list.filter(p => p.productType === productType)
-  if (category) list = list.filter(p => p.category === category)
-  if (supplyCategory) {
-    const brandName = Object.entries(supplySubMap).find(([k]) => k === supplyCategory)?.[1]?.label
-    if (brandName) list = list.filter(p => p.shopName.includes(brandName))
-  }
-  switch (sort) {
-    case 'price-asc': list.sort((a, b) => a.price - b.price); break
-    case 'price-desc': list.sort((a, b) => b.price - a.price); break
-    case 'sales': list.sort((a, b) => b.sales - a.sales); break
-    default: list.sort((a, b) => b.rating * b.reviewCount - a.rating * a.reviewCount)
-  }
-  const total = list.length
-  const start = (page - 1) * pageSize
-  return { list: list.slice(start, start + pageSize), total }
-}
-
 const keyword = ref('')
 const activeProductType = ref('')
 const activeCategory = ref('')
@@ -246,20 +203,24 @@ const renderStars = (rating) => {
   return '★'.repeat(full) + (half ? '☆' : '') + '☆'.repeat(5 - full - half)
 }
 
-function loadProducts(reset = false) {
+async function loadProducts(reset = false) {
   if (loading.value) return
   if (!reset && noMore.value) return
   loading.value = true
   if (reset) { page.value = 1; allProducts.value = [] }
-  const res = queryProducts({
-    page: page.value, pageSize, keyword: keyword.value,
-    category: activeCategory.value, productType: activeProductType.value,
-    supplyCategory: activeProductType.value === 'supply' ? activeCategory.value : '',
-    sort: sortBy.value,
-  })
-  allProducts.value = reset ? res.list : [...allProducts.value, ...res.list]
-  total.value = res.total
-  loading.value = false
+  try {
+    const res = await getProducts({
+      page: page.value, pageSize, keyword: keyword.value,
+      category: activeCategory.value, productType: activeProductType.value,
+      sort: sortBy.value,
+    })
+    allProducts.value = reset ? res.list : [...allProducts.value, ...res.list]
+    total.value = res.total
+  } catch {
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
 }
 
 function onSearch() { loadProducts(true) }
@@ -270,10 +231,17 @@ function resetFilters() { activeProductType.value = ''; activeCategory.value = '
 function goDetail(id) { uni.navigateTo({ url: `/pages/product/detail?id=${id}` }) }
 function addToCart(item) { useCartStore().addItem(item, 1, '标准款'); uni.showToast({ title: '已加入购物车', icon: 'success' }) }
 
-onLoad((options) => {
-  if (options.productType) activeProductType.value = options.productType
-  if (options.category) activeCategory.value = options.category
-  if (options.keyword) keyword.value = options.keyword
+let firstShow = true
+onShow(() => {
+  if (firstShow) {
+    firstShow = false
+    const pages = getCurrentPages()
+    const page = pages[pages.length - 1]
+    const opts = page?.$page?.options || page?.options || {}
+    if (opts.productType) activeProductType.value = opts.productType
+    if (opts.category) activeCategory.value = opts.category
+    if (opts.keyword) keyword.value = opts.keyword
+  }
   loadProducts(true)
 })
 onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
@@ -388,9 +356,9 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
   align-items: center;
   justify-content: center;
 }
-.category-chip__letter {
-  font-size: 22rpx;
-  font-weight: 700;
+.category-chip__icon-img {
+  width: 28rpx;
+  height: 28rpx;
 }
 .category-chip__text {
   font-size: 26rpx;
@@ -451,16 +419,23 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
   background: #fff;
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .product-card__img {
   position: relative;
   padding: 16rpx;
+  background: #f8f9fa;
+}
+.product-card__img-real {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12rpx;
 }
 .product-card__img-placeholder {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 12rpx;
+  background: linear-gradient(135deg, #e8edf5 0%, #d5dce8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -468,14 +443,14 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
 .product-card__img-letter {
   font-size: 56rpx;
   font-weight: 700;
-  opacity: 0.35;
+  opacity: 0.25;
 }
 .product-card__badge {
   position: absolute;
   top: 16rpx;
   left: 16rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
 }
 .product-card__badge--green {
   background: #e6f7ee;
@@ -547,7 +522,7 @@ onReachBottom(() => { if (!noMore.value) { page.value++; loadProducts() } })
 }
 .product-card__action {
   width: 100%;
-  padding: 14rpx 0;
+  padding: 16rpx 0;
   background: linear-gradient(135deg, #ff6c10, #ff8533);
   border-radius: 12rpx;
   display: flex;
