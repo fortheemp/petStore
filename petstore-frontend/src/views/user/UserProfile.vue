@@ -9,6 +9,7 @@ const profileForm = ref({
   nickname: userStore.userInfo?.nickname || '',
   gender: userStore.userInfo?.gender || 'secret',
   email: userStore.userInfo?.email || '',
+  phone: userStore.userInfo?.phone || '',
 })
 
 const maskedPhone = computed(() => {
@@ -22,11 +23,13 @@ const handleSave = async () => {
     nickname: profileForm.value.nickname,
     gender: profileForm.value.gender,
     email: profileForm.value.email,
+    phone: profileForm.value.phone,
   })
   userStore.updateUserInfo({
     nickname: profileForm.value.nickname,
     gender: profileForm.value.gender,
     email: profileForm.value.email,
+    phone: profileForm.value.phone,
   })
   ElMessage.success('保存成功')
 }

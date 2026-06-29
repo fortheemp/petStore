@@ -63,8 +63,8 @@ export const useAdminStore = defineStore('admin', () => {
     try { await apiApproveRefund(orderId, true); await loadOrders() } catch {}
   }
 
-  async function rejectRefundAction(orderId) {
-    try { await apiApproveRefund(orderId, false); await loadOrders() } catch {}
+  async function rejectRefundAction(orderId, reason) {
+    try { await apiApproveRefund(orderId, false, reason); await loadOrders() } catch {}
   }
 
   async function directRefundAction(orderId, reason) {

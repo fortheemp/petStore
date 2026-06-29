@@ -167,7 +167,21 @@ onMounted(() => {
           @click="handlePlayVideo(video)"
         >
           <div
-            v-if="video.url"
+            v-if="video.cover"
+            class="video-card__cover video-card__cover--image"
+          >
+            <img :src="video.cover" :alt="video.title" class="video-card__cover-img" />
+            <div class="video-card__cover-overlay">
+              <div class="video-card__play-btn">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="11" fill="rgba(255,255,255,0.9)" stroke="none"/>
+                  <polygon points="10 8 16 12 10 16" fill="#333" stroke="none"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div
+            v-else-if="video.url"
             class="video-card__cover video-card__cover--video"
           >
             <video
@@ -387,6 +401,17 @@ onMounted(() => {
 }
 
 .video-card__video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.video-card__cover--image {
+  padding: 0;
+}
+
+.video-card__cover-img {
   width: 100%;
   height: 100%;
   object-fit: cover;

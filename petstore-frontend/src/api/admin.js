@@ -10,7 +10,7 @@ export const deleteAdminProduct = (id) => del(`/admin/products/${id}`)
 export const getAdminOrders = (status) => get('/admin/orders', status !== undefined ? { status } : {})
 export const getAdminOrderDetail = (id) => get(`/admin/orders/${id}`)
 export const shipOrder = (id) => post(`/admin/orders/${id}/ship`)
-export const approveRefund = (id, approved) => post(`/admin/orders/${id}/approve-refund`, { approved })
+export const approveRefund = (id, approved, reason) => post(`/admin/orders/${id}/approve-refund`, { approved, reason })
 export const directRefund = (id, reason) => post(`/admin/orders/${id}/direct-refund`, { reason })
 
 // Users

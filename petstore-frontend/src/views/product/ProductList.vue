@@ -14,6 +14,20 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 
+// 子分类中文标签 → 后端 subcategory key 映射
+const subcategoryLabelToKey = {
+  '狗粮': 'dog_food', '狗零食': 'dog_snack', '狗玩具': 'dog_toy',
+  '项圈牵引': 'dog_collar', '清洁护理': 'dog_care', '狗窝垫': 'dog_bed',
+  '猫粮': 'cat_food', '猫砂': 'cat_litter', '猫玩具': 'cat_toy',
+  '猫抓板': 'cat_scratcher', '猫罐头': 'cat_can', '猫窝': 'cat_bed',
+  '鱼粮': 'fish_food', '鱼缸': 'fish_tank', '过滤器': 'fish_filter',
+  '加热棒': 'heater', '造景': 'aquascape', '药水': 'medicine',
+  '鸟粮': 'bird_food', '鸟笼': 'bird_cage', '鸟玩具': 'bird_toy',
+  '站杆': 'bird_perch', '沙浴': 'bird_bath', '保暖': 'bird_warm',
+  '兔粮': 'rabbit_food', '仓鼠笼': 'hamster_cage', '跑轮': 'wheel',
+  '垫料': 'bedding', '喂食器': 'feeder', '水壶': 'water_bottle',
+}
+
 // 子分类对应 SVG 图标
 const animalIcons = {
   '狗狗': `<path d="M11.25 16.25h1.5L12 17z"/><path d="M16 14v.5"/><path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a11.702 11.702 0 0 0-.493-3.309"/><path d="M8 14v.5"/><path d="M8.5 8.5c-.384 1.05-1.083 2.028-2.344 2.5-1.931.722-3.576-.297-3.656-1-.113-.994 1.177-6.53 4-7 1.923-.321 3.651.845 3.651 2.235A7.497 7.497 0 0 1 14 5.277c0-1.39 1.844-2.598 3.767-2.277 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"/>`,
@@ -105,6 +119,15 @@ watch(() => route.query.category, (cat) => {
   }
 }, { immediate: true })
 
+// 同步路由 subcategory 到 currentSubcategory 高亮
+const currentSubcategoryKey = computed(() => route.query.subcategory || '')
+watch(currentSubcategoryKey, (key) => {
+  if (key) {
+    const entry = Object.entries(subcategoryLabelToKey).find(([, v]) => v === key)
+    if (entry) currentSubcategory.value = entry[0]
+  }
+}, { immediate: true })
+
 const handlePageSearch = () => {
   const kw = pageSearchQuery.value.trim()
   const query = {}
@@ -178,6 +201,7 @@ const fetchProducts = async () => {
       pageSize: pageSize.value,
       category: currentCategory.value,
       productType: currentProductType.value,
+      subcategory: currentSubcategoryKey.value,
       shopId: currentShopId.value,
       keyword: currentKeyword.value,
       brand: selectedBrand.value,
@@ -243,14 +267,19 @@ const handleCategoryClick = (key) => {
 const handleSubcategoryClick = (sub) => {
   if (currentSubcategory.value === sub) {
     currentSubcategory.value = ''
+    const query = { productType: currentProductType.value }
+    if (currentCategory.value) query.category = currentCategory.value
+    router.push({ path: '/products', query })
     return
   }
   currentSubcategory.value = sub
+  const subKey = subcategoryLabelToKey[sub] || ''
   const matchedKey = Object.keys(categoryMap).find((k) => categoryMap[k].label === sub)
-  if (matchedKey) {
-    const query = { productType: currentProductType.value, category: matchedKey }
-    router.push({ path: '/products', query })
-  }
+  const query = { productType: currentProductType.value }
+  if (matchedKey) query.category = matchedKey
+  else if (currentCategory.value) query.category = currentCategory.value
+  if (subKey) query.subcategory = subKey
+  router.push({ path: '/products', query })
 }
 
 // 重置所有筛选
@@ -259,6 +288,9 @@ const resetFilters = () => {
   selectedBrand.value = ''
   selectedPriceRange.value = ''
   selectedRating.value = ''
+  currentPage.value = 1
+  const query = { productType: currentProductType.value }
+  router.push({ path: '/products', query })
 }
 
 // 查看全部商品

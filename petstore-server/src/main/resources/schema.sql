@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS shops (
     longitude REAL NOT NULL,
     latitude REAL NOT NULL,
     image TEXT,
+    status VARCHAR(10) DEFAULT 'open',
+    rating REAL DEFAULT 0,
+    review_count INTEGER DEFAULT 0,
+    phone VARCHAR(20),
+    business_hours VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -34,6 +39,8 @@ CREATE TABLE IF NOT EXISTS products (
     image TEXT,
     video_id INTEGER,
     description TEXT,
+    subcategory TEXT,
+    cover TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
 );
@@ -44,6 +51,13 @@ CREATE TABLE IF NOT EXISTS videos (
     title TEXT NOT NULL,
     url TEXT NOT NULL,
     product_id INTEGER,
+    cover TEXT,
+    duration VARCHAR(10),
+    duration_seconds INTEGER,
+    view_count INTEGER DEFAULT 0,
+    author VARCHAR(50),
+    description TEXT,
+    category VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

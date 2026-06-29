@@ -350,7 +350,8 @@ onMounted(fetchProduct)
                 </div>
                 <div v-for="review in product.reviews" :key="review.id" class="review-item">
                   <div class="review-item__header">
-                    <span class="review-item__avatar">{{ (review.username || '').charAt(0) }}</span>
+                    <img v-if="review.avatar" :src="review.avatar" class="review-item__avatar review-item__avatar--img" />
+                    <span v-else class="review-item__avatar">{{ (review.username || '').charAt(0) }}</span>
                     <span class="review-item__user">{{ review.username }}</span>
                     <span class="review-item__stars">
                       <svg v-for="i in review.rating" :key="i" width="14" height="14" viewBox="0 0 24 24" fill="#ffc107" stroke="#ffc107" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -942,6 +943,10 @@ onMounted(fetchProduct)
   font-size: 1.4rem;
   font-weight: 700;
   flex-shrink: 0;
+}
+.review-item__avatar--img {
+  object-fit: cover;
+  background: #eee;
 }
 .review-item__user { font-size: 1.4rem; font-weight: 600; color: #333; }
 .review-item__stars { display: flex; gap: 2px; }

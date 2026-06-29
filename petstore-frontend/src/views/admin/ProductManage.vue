@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAdminStore } from '@/stores/admin'
 import { createAdminProduct, updateAdminProduct } from '@/api/admin'
 import { get } from '@/api/request'
+import { subcategoriesMap } from '@/api/product'
 
 const admin = useAdminStore()
 
@@ -43,6 +44,7 @@ const defaultForm = () => ({
   shopId: null,
   name: '',
   type: 'pet',
+  subcategory: '',
   price: null,
   stock: null,
   description: '',
@@ -64,6 +66,8 @@ const productTypes = [
   { value: 'accessory', label: '宠物周边' },
 ]
 
+const allSubcategories = Object.values(subcategoriesMap).flat()
+
 const getTypeLabel = (val) => productTypes.find((t) => t.value === val)?.label || val || '-'
 const getShopName = (id) => shops.value.find((s) => s.id === id)?.name || '-'
 
@@ -81,6 +85,7 @@ const openEdit = (product) => {
     shopId: product.shopId,
     name: product.name,
     type: product.type || 'pet',
+    subcategory: product.subcategory || '',
     price: Number(product.price) || null,
     stock: product.stock,
     description: product.description || '',
@@ -96,6 +101,7 @@ const handleSave = async () => {
   fd.append('shopId', form.value.shopId)
   fd.append('name', form.value.name)
   fd.append('type', form.value.type)
+  if (form.value.subcategory) fd.append('subcategory', form.value.subcategory)
   fd.append('price', String(form.value.price))
   fd.append('stock', form.value.stock)
   if (form.value.description) fd.append('description', form.value.description)
@@ -218,6 +224,11 @@ const handleImageChange = (e) => {
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择类型" style="width: 100%">
             <el-option v-for="t in productTypes" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="子分类">
+          <el-select v-model="form.subcategory" placeholder="请选择子分类（可不选）" clearable style="width: 100%">
+            <el-option v-for="sub in allSubcategories" :key="sub" :label="sub" :value="sub" />
           </el-select>
         </el-form-item>
         <el-form-item label="价格" prop="price">

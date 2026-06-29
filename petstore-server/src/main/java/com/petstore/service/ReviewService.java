@@ -62,7 +62,10 @@ public class ReviewService {
             map.put("rating", r.getRating());
             map.put("createdAt", r.getCreatedAt());
             // JOIN users 获取 username
-            userRepository.findById(r.getUserId()).ifPresent(u -> map.put("username", u.getNickname() != null ? u.getNickname() : u.getUsername()));
+            userRepository.findById(r.getUserId()).ifPresent(u -> {
+                map.put("username", u.getNickname() != null ? u.getNickname() : u.getUsername());
+                map.put("avatar", u.getAvatar());
+            });
             return map;
         }).collect(Collectors.toList());
     }

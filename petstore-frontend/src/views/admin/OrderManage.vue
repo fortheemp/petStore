@@ -108,19 +108,18 @@ const handleApproveRefund = (order) => {
 }
 
 const handleRejectRefund = (order) => {
-  ElMessageBox.confirm(
-    `确认拒绝订单「#${order.id}」的退款申请？`,
-    '拒绝退款',
-    { confirmButtonText: '拒绝', cancelButtonText: '取消', type: 'warning' },
-  ).then(() => {
-    admin.rejectRefund(order.id)
-    ElMessage.success('已拒绝退款')
-  }).catch(() => {})
+  rejectTarget.value = order
+  rejectReason.value = ''
+  showRejectDialog.value = true
 }
 
 const showDirectRefundDialog = ref(false)
 const directRefundTarget = ref(null)
 const directRefundReason = ref('')
+
+const showRejectDialog = ref(false)
+const rejectTarget = ref(null)
+const rejectReason = ref('')
 
 const openDirectRefundDialog = (order) => {
   directRefundTarget.value = order
@@ -134,6 +133,14 @@ const submitDirectRefund = async () => {
   showDirectRefundDialog.value = false
   directRefundTarget.value = null
   ElMessage.success('退单已处理')
+}
+
+const submitRejectRefund = async () => {
+  if (!rejectTarget.value) return
+  await admin.rejectRefund(rejectTarget.value.id, rejectReason.value)
+  showRejectDialog.value = false
+  rejectTarget.value = null
+  ElMessage.success('已拒绝退款')
 }
 </script>
 
@@ -207,6 +214,13 @@ const submitDirectRefund = async () => {
           </template>
         </el-table-column>
 
+        <el-table-column label="退款理由" width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.refundReason" class="refund-reason">{{ row.refundReason }}</span>
+            <span v-else class="refund-reason--empty">-</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="createdAt" label="下单时间" width="170" sortable :default-sort="{ prop: 'createdAt', order: 'descending' }">
           <template #default="{ row }">
             <span class="time-text">{{ formatDate(row.createdAt) }}</span>
@@ -253,6 +267,24 @@ const submitDirectRefund = async () => {
         <div class="dialog__actions">
           <button class="dialog__btn dialog__btn--cancel" @click="showDirectRefundDialog = false">取消</button>
           <button class="dialog__btn dialog__btn--confirm" @click="submitDirectRefund">确认退单</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 拒绝退款弹窗 -->
+    <div v-if="showRejectDialog" class="dialog-mask" @click.self="showRejectDialog = false">
+      <div class="dialog">
+        <h3 class="dialog__title">拒绝退款</h3>
+        <p class="dialog__hint">确认拒绝订单「#{{ rejectTarget?.id }}」的退款申请，请填写拒绝理由：</p>
+        <textarea
+          v-model="rejectReason"
+          class="dialog__textarea"
+          placeholder="请输入拒绝理由（可不填）"
+          rows="4"
+        ></textarea>
+        <div class="dialog__actions">
+          <button class="dialog__btn dialog__btn--cancel" @click="showRejectDialog = false">取消</button>
+          <button class="dialog__btn dialog__btn--confirm" @click="submitRejectRefund">确认拒绝</button>
         </div>
       </div>
     </div>

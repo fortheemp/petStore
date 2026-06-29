@@ -68,6 +68,7 @@ const isEditing = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
 const videoFile = ref(null)
+const coverFile = ref(null)
 const useExternalUrl = ref(false)
 
 const defaultForm = () => ({
@@ -86,6 +87,7 @@ const openAdd = () => {
   editingId.value = null
   form.value = defaultForm()
   videoFile.value = null
+  coverFile.value = null
   useExternalUrl.value = false
   dialogVisible.value = true
 }
@@ -97,14 +99,20 @@ const openEdit = (video) => {
     title: video.title || '',
     url: video.url || '',
     productId: video.productId || null,
+    cover: video.cover || '',
   }
   videoFile.value = null
+  coverFile.value = null
   useExternalUrl.value = false
   dialogVisible.value = true
 }
 
 const handleFileChange = (file) => {
   videoFile.value = file.raw || file
+}
+
+const handleCoverChange = (file) => {
+  coverFile.value = file.raw || file
 }
 
 const handleSave = async () => {
@@ -116,6 +124,7 @@ const handleSave = async () => {
     fd.append('title', form.value.title)
     if (form.value.url) fd.append('url', form.value.url)
     if (form.value.productId) fd.append('productId', form.value.productId)
+    if (coverFile.value) fd.append('coverFile', coverFile.value)
 
     const res = await updateAdminVideo(editingId.value, fd)
     ElMessage.success('修改成功')
@@ -136,6 +145,9 @@ const handleSave = async () => {
     }
     if (form.value.productId) {
       fd.append('productId', form.value.productId)
+    }
+    if (coverFile.value) {
+      fd.append('coverFile', coverFile.value)
     }
 
     const res = await createAdminVideo(fd)
@@ -189,8 +201,9 @@ const handleDelete = (video) => {
         <el-table-column label="预览" width="200">
           <template #default="{ row }">
             <div class="video-preview">
+              <img v-if="row.cover" :src="row.cover" class="video-preview__cover" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px" />
               <video
-                v-if="row.url"
+                v-else-if="row.url"
                 :src="row.url"
                 controls
                 preload="metadata"
@@ -274,6 +287,23 @@ const handleDelete = (video) => {
           <div class="el-upload__tip" style="margin-top: 4px">
             编辑模式不支持替换已上传的视频文件，仅可修改外部链接
           </div>
+        </el-form-item>
+
+        <el-form-item label="视频封面">
+          <div v-if="isEditing && form.cover && !coverFile" style="margin-bottom: 8px">
+            <img :src="form.cover" style="max-width: 200px; max-height: 120px; border-radius: 4px; display: block" />
+          </div>
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleCoverChange"
+            accept="image/*"
+          >
+            <el-button size="small" type="primary">{{ isEditing ? '替换封面' : '选择封面图' }}</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持 JPG/PNG 格式，建议尺寸 640x360</div>
+            </template>
+          </el-upload>
         </el-form-item>
 
         <el-form-item label="关联商品">

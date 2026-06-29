@@ -19,7 +19,8 @@ spring:
         format_sql: true
   sql:
     init:
-      mode: never
+      mode: always
+      encoding: UTF-8
       schema-locations: classpath:schema.sql
       data-locations: classpath:data.sql
   servlet:

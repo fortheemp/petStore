@@ -88,6 +88,7 @@ function adaptProduct(p) {
     category,
     brand: deriveBrand(p.name, category),
     productType: p.type === 'pet' ? 'pet' : 'supply',
+    subcategory: p.subcategory || '',
     stock: p.stock,
     videoId: p.videoId || null,
   }
@@ -116,6 +117,7 @@ export function getProducts(params = {}) {
     pageSize = 12,
     category = '',
     productType = '',
+    subcategory = '',
     shopId = '',
     keyword = '',
     brand = '',
@@ -140,6 +142,9 @@ export function getProducts(params = {}) {
     }
     if (category) {
       filtered = filtered.filter((p) => p.category === category)
+    }
+    if (subcategory) {
+      filtered = filtered.filter((p) => p.subcategory === subcategory)
     }
     if (brand) {
       filtered = filtered.filter((p) => p.brand === brand)
