@@ -34,4 +34,18 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 46077,
+    allowedHosts: ['frp-hat.com'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
 })

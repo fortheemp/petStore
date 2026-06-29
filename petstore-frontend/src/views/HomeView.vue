@@ -231,11 +231,6 @@ const formatPrice = (p) => Number(p).toFixed(0)
             class="shop-card"
             @click="goToShops"
           >
-            <div class="shop-card__image">
-              <div class="shop-card__placeholder">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-              </div>
-            </div>
             <div class="shop-card__body">
               <h3 class="shop-card__name">{{ shop.name }}</h3>
               <p class="shop-card__address">
@@ -685,27 +680,6 @@ const formatPrice = (p) => Number(p).toFixed(0)
   box-shadow: var(--shadow-md);
 }
 
-.shop-card__image {
-  width: 100%;
-  height: 180px;
-  background: #f0f0f0;
-  overflow: hidden;
-}
-
-.shop-card__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.shop-card__placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-}
 
 .shop-card__body {
   padding: var(--spacing-4) var(--spacing-5);
