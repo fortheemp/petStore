@@ -1,1 +1,0 @@
-import{a as e,i as t,n,r}from"./_plugin-vue_export-helper-mNIo5rF2.js";var i=e=>r(`/addresses`,{userId:e}),a=e=>t(`/addresses`,e),o=(t,n)=>e(`/addresses/${t}`,n),s=e=>n(`/addresses/${e}`),c=e=>t(`/addresses/${e}/default`);export{o as a,c as i,s as n,i as r,a as t};
