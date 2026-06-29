@@ -3,6 +3,8 @@ package com.petstore.service;
 import com.petstore.dto.LoginDTO;
 import com.petstore.dto.RegisterDTO;
 import com.petstore.entity.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.petstore.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,8 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -41,10 +45,13 @@ public class UserService {
 
     public User login(LoginDTO dto) {
         String account = dto.getUsername();
+        log.info("Login attempt: account='{}'", account);
         // 自动识别：先按用户名查，再按手机号查
         User user = userRepository.findByUsername(account);
+        log.info("findByUsername('{}') => {}", account, user != null ? "found id=" + user.getId() : "null");
         if (user == null) {
             user = userRepository.findByPhone(account);
+            log.info("findByPhone('{}') => {}", account, user != null ? "found id=" + user.getId() : "null");
         }
         if (user == null) {
             throw new RuntimeException("用户名或密码错误");
@@ -66,6 +73,7 @@ public class UserService {
         if (user.getGender() != null) exist.setGender(user.getGender());
         if (user.getEmail() != null) exist.setEmail(user.getEmail());
         if (user.getPhone() != null) exist.setPhone(user.getPhone());
+        log.info("update userId={}, phone='{}'", user.getId(), user.getPhone());
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             exist.setPassword(user.getPassword());
         }

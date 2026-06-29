@@ -78,7 +78,7 @@ const goToRegister = () => router.push('/register')
         <el-form-item prop="username" class="auth-form__item">
           <el-input
             v-model="loginForm.username"
-            placeholder="用户名 / 手机号 / 邮箱"
+            placeholder="用户名 / 手机号"
             size="large"
             :prefix-icon="User"
           />

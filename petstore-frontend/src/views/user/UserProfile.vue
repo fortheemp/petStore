@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { post, put } from '@/api/request'
 
@@ -10,11 +10,6 @@ const profileForm = ref({
   gender: userStore.userInfo?.gender || 'secret',
   email: userStore.userInfo?.email || '',
   phone: userStore.userInfo?.phone || '',
-})
-
-const maskedPhone = computed(() => {
-  const phone = userStore.userInfo?.phone || ''
-  return phone.replace(/(\d{3})\*{4}(\d{4})/, '$1****$2')
 })
 
 const handleSave = async () => {
@@ -120,7 +115,12 @@ const handleAvatarChange = async (e) => {
 
         <div class="profile-form__row">
           <label class="profile-form__label">手机号</label>
-          <div class="profile-form__value readonly">{{ maskedPhone }}</div>
+          <el-input
+            v-model="profileForm.phone"
+            placeholder="请输入手机号"
+            maxlength="11"
+            style="max-width: 32rem"
+          />
         </div>
 
         <div class="profile-form__row">

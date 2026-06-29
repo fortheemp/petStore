@@ -58,6 +58,13 @@
 
     <!-- Menu List -->
     <view class="card">
+      <view class="menu-item" @tap="goPage('/pages/user/edit-profile')">
+        <view class="menu-left">
+          <image class="menu-icon-img" src="/static/icons/menu-profile.png" mode="aspectFit" />
+          <text class="menu-text">个人资料</text>
+        </view>
+        <image class="menu-arrow-img" src="/static/icons/arrow.png" mode="aspectFit" />
+      </view>
       <view class="menu-item" @tap="goPage('/pages/user/address')">
         <view class="menu-left">
           <image class="menu-icon-img" src="/static/icons/menu-address.png" mode="aspectFit" />

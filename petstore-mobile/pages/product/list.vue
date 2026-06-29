@@ -35,23 +35,44 @@
       <scroll-view scroll-x class="category-scroll" :show-scrollbar="false">
         <view
           class="category-chip"
-          :class="{ 'category-chip--active': activeCategory === '' }"
+          :class="{ 'category-chip--active': activeCategory === '' && activeSubcategory === '' }"
           @tap="selectCategory('')"
         >
-          <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === '' }">全部</text>
+          <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === '' && activeSubcategory === '' }">全部</text>
         </view>
-        <view
-          v-for="(info, key) in currentCategoryMap"
-          :key="key"
-          class="category-chip"
-          :class="{ 'category-chip--active': activeCategory === key }"
-          @tap="selectCategory(key)"
-        >
-          <view class="category-chip__icon" :style="{ background: info.bg }">
-            <image class="category-chip__icon-img" :src="info.icon" mode="aspectFit" />
+        <!-- Supply subcategory chips -->
+        <template v-if="supplySubcategoriesList.length > 0">
+          <view
+            v-for="sub in supplySubcategoriesList"
+            :key="sub"
+            class="category-chip"
+            :class="{ 'category-chip--active': activeSubcategory === subcategoryLabelToKey[sub] }"
+            @tap="selectSubcategory(subcategoryLabelToKey[sub])"
+          >
+            <image
+              v-if="supplySubcategoryIconMap[sub]"
+              class="category-chip__icon-img"
+              :src="`/static/icons/${supplySubcategoryIconMap[sub]}.png`"
+              mode="aspectFit"
+            />
+            <text class="category-chip__text" :class="{ 'category-chip__text--active': activeSubcategory === subcategoryLabelToKey[sub] }">{{ sub }}</text>
           </view>
-          <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === key }">{{ info.label }}</text>
-        </view>
+        </template>
+        <!-- Category chips (pet or supply without category) -->
+        <template v-else-if="currentCategoryMap">
+          <view
+            v-for="(info, key) in currentCategoryMap"
+            :key="key"
+            class="category-chip"
+            :class="{ 'category-chip--active': activeCategory === key }"
+            @tap="selectCategory(key)"
+          >
+            <view class="category-chip__icon" :style="{ background: info.bg }">
+              <image class="category-chip__icon-img" :src="info.icon" mode="aspectFit" />
+            </view>
+            <text class="category-chip__text" :class="{ 'category-chip__text--active': activeCategory === key }">{{ info.label }}</text>
+          </view>
+        </template>
       </scroll-view>
     </view>
 
@@ -135,7 +156,7 @@
 import { ref, computed } from 'vue'
 import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import { useCartStore } from '@/stores/cart'
-import { getProducts, invalidateProductCache } from '@/services/product'
+import { getProducts, invalidateProductCache, supplySubcategoriesMap, subcategoryLabelToKey } from '@/services/product'
 import { fixImageUrl } from '@/services/request'
 
 const categoryMap = {
@@ -146,19 +167,37 @@ const categoryMap = {
   small: { label: '小宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
 }
 
-const supplySubMap = {
-  royal: { label: '皇家', icon: '/static/icons/cat-dogs.png', bg: 'rgba(255,108,16,0.07)' },
-  orijen: { label: '渴望', icon: '/static/icons/cat-cats.png', bg: 'rgba(139,92,246,0.07)' },
-  sen: { label: '森森', icon: '/static/icons/cat-fish.png', bg: 'rgba(28,73,194,0.07)' },
-  cute: { label: '喵星人', icon: '/static/icons/cat-cats.png', bg: 'rgba(0,166,81,0.07)' },
-  love: { label: '爱宠', icon: '/static/icons/cat-small.png', bg: 'rgba(230,126,34,0.07)' },
-}
-
 const currentCategoryMap = computed(() => {
   if (activeProductType.value === 'pet') return categoryMap
-  if (activeProductType.value === 'supply') return supplySubMap
+  // supply: show subcategories if a category is selected, otherwise show animal categories
+  if (activeCategory.value && supplySubcategoriesMap[activeCategory.value]) {
+    return null // will use supplySubcategoriesList instead
+  }
   return categoryMap
 })
+
+const supplySubcategoriesList = computed(() => {
+  if (activeProductType.value !== 'supply') return []
+  if (activeCategory.value && supplySubcategoriesMap[activeCategory.value]) {
+    return supplySubcategoriesMap[activeCategory.value]
+  }
+  return []
+})
+
+// 子分类中文标签 → 图标文件路径
+const supplySubcategoryIconMap = {
+  '狗粮':'food-dog','狗零食':'snack-dog','狗玩具':'toy-dog',
+  '项圈牵引':'collar','清洁护理':'clean','狗窝垫':'bed',
+  '猫粮':'food-cat','猫砂':'litter','猫玩具':'toy-cat',
+  '猫零食':'snack-dog','猫护理':'clean','猫窝':'cat-tree',
+  '鱼粮':'food-dog','鱼缸':'tank','鱼药':'medicine',
+  '水草造景':'heater','过滤设备':'filter','加热棒':'heater',
+  '鸟粮':'food-dog','鸟笼':'cage','鸟玩具':'bird-toy',
+  '鸟零食':'snack-dog','鸟用品':'clean','鸟药':'medicine',
+  '兔粮':'food-dog','仓鼠笼':'hamster-cage',
+  '仓鼠粮':'food-dog','仓鼠玩具':'toy-dog',
+  '仓鼠用品':'clean','小宠窝':'bed',
+}
 
 const typeTabs = [
   { value: '', label: '全部', dotColor: '#999' },
@@ -187,6 +226,7 @@ const getCardColor = (item) => categoryColors[item.category]?.color || '#1c49c2'
 const keyword = ref('')
 const activeProductType = ref('')
 const activeCategory = ref('')
+const activeSubcategory = ref('')
 const sortBy = ref('default')
 const page = ref(1)
 const pageSize = 10
@@ -212,6 +252,7 @@ async function loadProducts(reset = false) {
     const res = await getProducts({
       page: page.value, pageSize, keyword: keyword.value,
       category: activeCategory.value, productType: activeProductType.value,
+      subcategory: activeSubcategory.value,
       sort: sortBy.value,
     })
     allProducts.value = reset ? res.list : [...allProducts.value, ...res.list]
@@ -224,10 +265,11 @@ async function loadProducts(reset = false) {
 }
 
 function onSearch() { loadProducts(true) }
-function selectProductType(type) { if (activeProductType.value === type) return; activeProductType.value = type; activeCategory.value = ''; loadProducts(true) }
-function selectCategory(cat) { if (activeCategory.value === cat) return; activeCategory.value = cat; loadProducts(true) }
+function selectProductType(type) { if (activeProductType.value === type) return; activeProductType.value = type; activeCategory.value = ''; activeSubcategory.value = ''; loadProducts(true) }
+function selectCategory(cat) { if (activeCategory.value === cat) return; activeCategory.value = cat; activeSubcategory.value = ''; loadProducts(true) }
+function selectSubcategory(sub) { if (activeSubcategory.value === sub) { activeSubcategory.value = '' } else { activeSubcategory.value = sub } loadProducts(true) }
 function selectSort(sort) { if (sortBy.value === sort) return; sortBy.value = sort; loadProducts(true) }
-function resetFilters() { activeProductType.value = ''; activeCategory.value = ''; keyword.value = ''; sortBy.value = 'default'; loadProducts(true) }
+function resetFilters() { activeProductType.value = ''; activeCategory.value = ''; activeSubcategory.value = ''; keyword.value = ''; sortBy.value = 'default'; loadProducts(true) }
 function goDetail(id) { uni.navigateTo({ url: `/pages/product/detail?id=${id}` }) }
 function addToCart(item) { useCartStore().addItem(item, 1, '标准款'); uni.showToast({ title: '已加入购物车', icon: 'success' }) }
 
@@ -240,6 +282,7 @@ onShow(() => {
     const opts = page?.$page?.options || page?.options || {}
     if (opts.productType) activeProductType.value = opts.productType
     if (opts.category) activeCategory.value = opts.category
+    if (opts.subcategory) activeSubcategory.value = opts.subcategory
     if (opts.keyword) keyword.value = opts.keyword
   }
   loadProducts(true)

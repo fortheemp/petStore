@@ -13,7 +13,14 @@
           @tap="playVideo(video)"
         >
           <view class="video-cover">
+            <image
+              v-if="video.cover"
+              class="cover-img"
+              :src="fixImageUrl(video.cover)"
+              mode="aspectFill"
+            />
             <view
+              v-else
               class="cover-placeholder"
               :style="{ background: coverThemes[idx % coverThemes.length].bg }"
             >
@@ -53,6 +60,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getVideoList } from '@/services/video'
+import { fixImageUrl } from '@/services/request'
 
 const videos = ref([])
 const loading = ref(true)
@@ -126,6 +134,11 @@ onShow(async () => {
   position: relative;
   width: 100%;
   height: 280rpx;
+}
+
+.cover-img {
+  width: 100%;
+  height: 100%;
 }
 
 .cover-placeholder {

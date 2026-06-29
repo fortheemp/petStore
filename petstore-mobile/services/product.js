@@ -1,4 +1,4 @@
-import { get } from './request'
+import { get, fixImageUrl } from './request'
 import { getShopById } from './shop'
 import { getVideoById } from './video'
 
@@ -25,6 +25,27 @@ export const subcategoriesMap = {
   small: ['兔粮', '仓鼠笼', '跑轮', '垫料', '喂食器', '水壶'],
 }
 
+export const supplySubcategoriesMap = {
+  dogs: ['狗粮', '狗零食', '狗玩具', '项圈牵引', '清洁护理', '狗窝垫'],
+  cats: ['猫粮', '猫砂', '猫玩具', '猫零食', '猫护理', '猫窝'],
+  fish: ['鱼粮', '鱼缸', '鱼药', '水草造景', '过滤设备', '加热棒'],
+  birds: ['鸟粮', '鸟笼', '鸟玩具', '鸟零食', '鸟用品', '鸟药'],
+  small: ['兔粮', '仓鼠笼', '仓鼠粮', '仓鼠玩具', '仓鼠用品', '小宠窝'],
+}
+
+export const subcategoryLabelToKey = {
+  '狗粮': 'dog_food', '狗零食': 'dog_snack', '狗玩具': 'dog_toy',
+  '项圈牵引': 'dog_collar', '清洁护理': 'dog_care', '狗窝垫': 'dog_bed',
+  '猫粮': 'cat_food', '猫砂': 'cat_litter', '猫玩具': 'cat_toy',
+  '猫零食': 'cat_snack', '猫护理': 'cat_care', '猫窝': 'cat_bed',
+  '鱼粮': 'fish_food', '鱼缸': 'fish_tank', '鱼药': 'fish_medicine',
+  '水草造景': 'fish_aqua', '过滤设备': 'fish_filter', '加热棒': 'fish_heater',
+  '鸟粮': 'bird_food', '鸟笼': 'bird_cage', '鸟玩具': 'bird_toy',
+  '鸟零食': 'bird_snack', '鸟用品': 'bird_supply', '鸟药': 'bird_medicine',
+  '兔粮': 'rabbit_food', '仓鼠笼': 'hamster_cage', '仓鼠粮': 'hamster_food',
+  '仓鼠玩具': 'hamster_toy', '仓鼠用品': 'hamster_supply', '小宠窝': 'small_bed',
+}
+
 export const brandsMap = {
   dogs: ['皇家', '冠能', '渴望', '比瑞吉', '伯纳天纯'],
   cats: ['渴望', '纽翠斯', '爱肯拿', 'go!', '百利'],
@@ -48,14 +69,6 @@ export const ratingOptions = [
 ]
 
 // ========== 后端数据适配 ==========
-
-function fixImageUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http')) {
-    return url.replace('http://10.171.141.181:8080', '')
-  }
-  return url
-}
 
 function deriveCategory(name) {
   if (!name) return 'dogs'
@@ -87,6 +100,7 @@ export function adaptProduct(p) {
     shopName: p.shopName || '',
     fastDelivery: true,
     category,
+    subcategory: p.subcategory || '',
     brand: deriveBrand(p.name, category),
     productType: p.type === 'pet' ? 'pet' : 'supply',
     stock: p.stock,
@@ -118,6 +132,7 @@ export function getProducts(params = {}) {
     pageSize = 10,
     category = '',
     productType = '',
+    subcategory = '',
     shopId = '',
     keyword = '',
     brand = '',
@@ -141,6 +156,9 @@ export function getProducts(params = {}) {
     }
     if (category) {
       filtered = filtered.filter((p) => p.category === category)
+    }
+    if (subcategory) {
+      filtered = filtered.filter((p) => p.subcategory === subcategory)
     }
     if (brand) {
       filtered = filtered.filter((p) => p.brand === brand)

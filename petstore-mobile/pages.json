@@ -95,6 +95,12 @@
       "style": {
         "navigationBarTitleText": "视频播放"
       }
+    },
+    {
+      "path": "pages/user/edit-profile",
+      "style": {
+        "navigationBarTitleText": "个人资料"
+      }
     }
   ],
   "globalStyle": {
