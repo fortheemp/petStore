@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar TEXT,
     role TEXT DEFAULT 'member',
     level INTEGER DEFAULT 0,
+    phone VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

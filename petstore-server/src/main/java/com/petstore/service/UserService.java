@@ -31,13 +31,21 @@ public class UserService {
         user.setUsername(dto.getUsername().trim());
         user.setPassword(dto.getPassword().trim());
         user.setNickname(dto.getNickname() != null ? dto.getNickname().trim() : dto.getUsername().trim());
+        if (dto.getPhone() != null && !dto.getPhone().trim().isEmpty()) {
+            user.setPhone(dto.getPhone().trim());
+        }
         user.setRole(User.Role.member);
         user.setLevel(0);
         return userRepository.save(user);
     }
 
     public User login(LoginDTO dto) {
-        User user = userRepository.findByUsername(dto.getUsername());
+        String account = dto.getUsername();
+        // 自动识别：先按用户名查，再按手机号查
+        User user = userRepository.findByUsername(account);
+        if (user == null) {
+            user = userRepository.findByPhone(account);
+        }
         if (user == null) {
             throw new RuntimeException("用户名或密码错误");
         }
@@ -57,6 +65,7 @@ public class UserService {
         if (user.getAvatar() != null) exist.setAvatar(user.getAvatar());
         if (user.getGender() != null) exist.setGender(user.getGender());
         if (user.getEmail() != null) exist.setEmail(user.getEmail());
+        if (user.getPhone() != null) exist.setPhone(user.getPhone());
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             exist.setPassword(user.getPassword());
         }

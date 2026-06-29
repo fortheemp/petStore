@@ -36,9 +36,10 @@ public class SchemaMigration implements ApplicationRunner {
             "ALTER TABLE shops ADD COLUMN review_count INTEGER DEFAULT 0",
             "ALTER TABLE shops ADD COLUMN phone VARCHAR(20)",
             "ALTER TABLE shops ADD COLUMN business_hours VARCHAR(50)",
-            // User 表 — gender 和 email 字段
+            // User 表 — gender、email 和 phone 字段
             "ALTER TABLE users ADD COLUMN gender VARCHAR(10) DEFAULT 'secret'",
             "ALTER TABLE users ADD COLUMN email VARCHAR(100)",
+            "ALTER TABLE users ADD COLUMN phone VARCHAR(20)",
             // Video 表 — 富信息字段
             "ALTER TABLE videos ADD COLUMN duration VARCHAR(10)",
             "ALTER TABLE videos ADD COLUMN duration_seconds INTEGER",
