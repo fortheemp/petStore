@@ -187,7 +187,7 @@ public class OrderService {
     /**
      * 管理员审核退单
      */
-    public void approveRefund(Long orderId, boolean approved) {
+    public void approveRefund(Long orderId, boolean approved, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("订单不存在"));
         if (order.getStatus() != -2) {
@@ -200,8 +200,11 @@ public class OrderService {
         } else {
             // 恢复原状态
             order.setStatus(order.getPreviousStatus());
-            order.setRefundReason(null);
             order.setPreviousStatus(null);
+            // 用管理员填写的理由覆盖用户申请的理由
+            if (reason != null && !reason.isEmpty()) {
+                order.setRefundReason(reason);
+            }
         }
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);

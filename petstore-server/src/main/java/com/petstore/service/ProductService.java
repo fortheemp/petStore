@@ -38,7 +38,8 @@ public class ProductService {
     }
 
     public Product addProduct(Long shopId, String name, String type, Integer stock,
-                              String price, String image, Long videoId, String description) {
+                              String price, String image, Long videoId, String description,
+                              String subcategory) {
         Product product = new Product();
         product.setShopId(shopId);
         product.setName(name);
@@ -48,11 +49,13 @@ public class ProductService {
         product.setImage(image);
         product.setVideoId(videoId);
         product.setDescription(description);
+        product.setSubcategory(subcategory);
         return productRepository.save(product);
     }
 
     public Product updateProduct(Long id, String name, String type, Integer stock,
-                                 String price, String image, Long videoId, String description) {
+                                 String price, String image, Long videoId, String description,
+                                 String subcategory) {
         Product product = getById(id);
         if (name != null) product.setName(name);
         if (type != null) product.setType(Product.ProductType.valueOf(type));
@@ -61,6 +64,7 @@ public class ProductService {
         if (image != null) product.setImage(image);
         if (videoId != null) product.setVideoId(videoId);
         if (description != null) product.setDescription(description);
+        if (subcategory != null) product.setSubcategory(subcategory);
         return productRepository.save(product);
     }
 
@@ -80,6 +84,10 @@ public class ProductService {
             products = productRepository.findByNameContaining(keyword);
         }
         return fillShopNames(products);
+    }
+
+    public List<Product> getBySubcategory(String subcategory) {
+        return fillShopNames(productRepository.findBySubcategory(subcategory));
     }
 
     private List<Product> fillShopNames(List<Product> products) {

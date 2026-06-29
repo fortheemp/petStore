@@ -55,6 +55,8 @@ public class UserService {
         User exist = getById(user.getId());
         if (user.getNickname() != null) exist.setNickname(user.getNickname());
         if (user.getAvatar() != null) exist.setAvatar(user.getAvatar());
+        if (user.getGender() != null) exist.setGender(user.getGender());
+        if (user.getEmail() != null) exist.setEmail(user.getEmail());
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             exist.setPassword(user.getPassword());
         }

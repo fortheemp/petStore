@@ -33,6 +33,8 @@ public class Product {
 
     private String description;
 
+    private String subcategory;
+
     @Column(name = "avg_rating")
     private Double avgRating = 0.0;
 
@@ -69,6 +71,8 @@ public class Product {
     public void setVideoId(Long videoId) { this.videoId = videoId; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getSubcategory() { return subcategory; }
+    public void setSubcategory(String subcategory) { this.subcategory = subcategory; }
     public Double getAvgRating() { return avgRating; }
     public void setAvgRating(Double avgRating) { this.avgRating = avgRating; }
     public Integer getReviewCount() { return reviewCount; }

@@ -19,7 +19,8 @@ public class ProductController {
     @GetMapping
     public Result list(@RequestParam(required = false) Long shopId,
                        @RequestParam(required = false) String type,
-                       @RequestParam(required = false) String keyword) {
+                       @RequestParam(required = false) String keyword,
+                       @RequestParam(required = false) String subcategory) {
         if (shopId != null) {
             return Result.success(productService.getByShopId(shopId));
         }
@@ -29,6 +30,9 @@ public class ProductController {
         }
         if (keyword != null && !keyword.isEmpty()) {
             return Result.success(productService.search(keyword));
+        }
+        if (subcategory != null && !subcategory.isEmpty()) {
+            return Result.success(productService.getBySubcategory(subcategory));
         }
         return Result.success(productService.listAll());
     }

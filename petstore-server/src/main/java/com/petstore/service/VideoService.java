@@ -29,12 +29,12 @@ public class VideoService {
     }
 
     public Video add(String title, String url, Long productId) {
-        return add(title, url, productId, null, null, null, null, null);
+        return add(title, url, productId, null, null, null, null, null, null);
     }
 
     public Video add(String title, String url, Long productId,
                      String duration, Integer durationSeconds, String author,
-                     String description, String category) {
+                     String description, String category, String cover) {
         Video video = new Video();
         video.setTitle(title);
         video.setUrl(url);
@@ -44,12 +44,13 @@ public class VideoService {
         video.setAuthor(author);
         video.setDescription(description);
         video.setCategory(category);
+        video.setCover(cover);
         return videoRepository.save(video);
     }
 
     public Video update(Long id, String title, String url, Long productId,
                         String duration, Integer durationSeconds, String author,
-                        String description, String category) {
+                        String description, String category, String cover) {
         Video video = getById(id);
         if (title != null) video.setTitle(title);
         if (url != null) video.setUrl(url);
@@ -59,11 +60,12 @@ public class VideoService {
         if (author != null) video.setAuthor(author);
         if (description != null) video.setDescription(description);
         if (category != null) video.setCategory(category);
+        if (cover != null) video.setCover(cover);
         return videoRepository.save(video);
     }
 
     public Video update(Long id, String title, String url, Long productId) {
-        return update(id, title, url, productId, null, null, null, null, null);
+        return update(id, title, url, productId, null, null, null, null, null, null);
     }
 
     public void delete(Long id) {
@@ -96,6 +98,7 @@ public class VideoService {
         map.put("author", video.getAuthor());
         map.put("description", video.getDescription());
         map.put("category", video.getCategory());
+        map.put("cover", video.getCover());
         map.put("createdAt", video.getCreatedAt());
         if (video.getProductId() != null) {
             productRepository.findById(video.getProductId()).ifPresent(product -> {

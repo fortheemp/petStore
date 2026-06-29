@@ -45,4 +45,11 @@ UPDATE videos SET duration='00:10', duration_seconds=10, view_count=0, author='P
 UPDATE shops SET status='open', rating=4.5, review_count=0, phone='010-88886666', business_hours='09:00-21:00' WHERE id=1 AND phone IS NULL;
 UPDATE shops SET status='open', rating=4.2, review_count=0, phone='010-66668888', business_hours='10:00-22:00' WHERE id=2 AND phone IS NULL;
 UPDATE shops SET status='open', rating=4.8, review_count=0, phone='021-99995555', business_hours='08:30-21:30' WHERE id=3 AND phone IS NULL;
+-- 补充子分类
+UPDATE products SET subcategory='cat_food' WHERE id=8 AND subcategory IS NULL;
+UPDATE products SET subcategory='pet_supplies' WHERE id=9 AND subcategory IS NULL;
+UPDATE products SET subcategory='dog_food' WHERE id=10 AND subcategory IS NULL;
+UPDATE products SET subcategory='cat_litter' WHERE id=11 AND subcategory IS NULL;
+UPDATE products SET subcategory='dog_supplies' WHERE id=12 AND subcategory IS NULL;
+UPDATE products SET subcategory='cat_supplies' WHERE id=13 AND subcategory IS NULL;
 

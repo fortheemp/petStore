@@ -34,6 +34,8 @@ public class Video {
 
     private String category;
 
+    private String cover;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -59,6 +61,8 @@ public class Video {
     public void setDescription(String description) { this.description = description; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+    public String getCover() { return cover; }
+    public void setCover(String cover) { this.cover = cover; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

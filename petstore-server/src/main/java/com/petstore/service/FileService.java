@@ -24,6 +24,11 @@ public class FileService {
         return saveFile(file, "videos");
     }
 
+    public String uploadCover(MultipartFile file) {
+        if (file == null || file.isEmpty()) return null;
+        return saveFile(file, "covers");
+    }
+
     private String saveFile(MultipartFile file, String subDir) {
         try {
             String originalFilename = file.getOriginalFilename();

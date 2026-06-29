@@ -24,6 +24,11 @@ public class User {
 
     private Integer level = 0;
 
+    @Column(name = "gender")
+    private String gender = "secret";
+
+    private String email;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -47,6 +52,10 @@ public class User {
     public void setRole(Role role) { this.role = role; }
     public Integer getLevel() { return level; }
     public void setLevel(Integer level) { this.level = level; }
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

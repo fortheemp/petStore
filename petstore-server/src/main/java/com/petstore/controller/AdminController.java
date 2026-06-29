@@ -88,9 +88,10 @@ public class AdminController {
                              @RequestParam("price") String price,
                              @RequestParam(value = "image", required = false) MultipartFile image,
                              @RequestParam(value = "videoId", required = false) Long videoId,
-                             @RequestParam(value = "description", required = false) String description) {
+                             @RequestParam(value = "description", required = false) String description,
+                             @RequestParam(value = "subcategory", required = false) String subcategory) {
         String imageUrl = fileService.uploadImage(image);
-        Product product = productService.addProduct(shopId, name, type, stock, price, imageUrl, videoId, description);
+        Product product = productService.addProduct(shopId, name, type, stock, price, imageUrl, videoId, description, subcategory);
         return Result.success(product);
     }
 
@@ -103,12 +104,13 @@ public class AdminController {
                                 @RequestParam(value = "price", required = false) String price,
                                 @RequestParam(value = "image", required = false) MultipartFile image,
                                 @RequestParam(value = "videoId", required = false) Long videoId,
-                                @RequestParam(value = "description", required = false) String description) {
+                                @RequestParam(value = "description", required = false) String description,
+                                @RequestParam(value = "subcategory", required = false) String subcategory) {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
             imageUrl = fileService.uploadImage(image);
         }
-        Product product = productService.updateProduct(id, name, type, stock, price, imageUrl, videoId, description);
+        Product product = productService.updateProduct(id, name, type, stock, price, imageUrl, videoId, description, subcategory);
         return Result.success(product);
     }
 
@@ -134,13 +136,18 @@ public class AdminController {
                            @RequestParam(value = "durationSeconds", required = false) Integer durationSeconds,
                            @RequestParam(value = "author", required = false) String author,
                            @RequestParam(value = "description", required = false) String description,
-                           @RequestParam(value = "category", required = false) String category) {
+                           @RequestParam(value = "category", required = false) String category,
+                           @RequestParam(value = "coverFile", required = false) MultipartFile coverFile) {
         String videoUrl = url;
         if (file != null && !file.isEmpty()) {
             videoUrl = fileService.uploadVideo(file);
         }
+        String coverUrl = null;
+        if (coverFile != null && !coverFile.isEmpty()) {
+            coverUrl = fileService.uploadCover(coverFile);
+        }
         Video video = videoService.add(title, videoUrl, productId,
-                duration, durationSeconds, author, description, category);
+                duration, durationSeconds, author, description, category, coverUrl);
         return Result.success(video);
     }
 
@@ -153,9 +160,14 @@ public class AdminController {
                               @RequestParam(value = "durationSeconds", required = false) Integer durationSeconds,
                               @RequestParam(value = "author", required = false) String author,
                               @RequestParam(value = "description", required = false) String description,
-                              @RequestParam(value = "category", required = false) String category) {
+                              @RequestParam(value = "category", required = false) String category,
+                              @RequestParam(value = "coverFile", required = false) MultipartFile coverFile) {
+        String coverUrl = null;
+        if (coverFile != null && !coverFile.isEmpty()) {
+            coverUrl = fileService.uploadCover(coverFile);
+        }
         Video video = videoService.update(id, title, url, productId,
-                duration, durationSeconds, author, description, category);
+                duration, durationSeconds, author, description, category, coverUrl);
         return Result.success(video);
     }
 
@@ -206,9 +218,10 @@ public class AdminController {
     @PostMapping("/orders/{id}/approve-refund")
     public Result approveRefund(@PathVariable Long id,
                                  @RequestBody Map<String, Object> body) {
-        boolean approved = Boolean.parseBoolean(body.get("approved").toString());
-        orderService.approveRefund(id, approved);
-        return Result.success(approved ? "退单已通过" : "退单已拒绝");
+        boolean approved = (Boolean) body.get("approved");
+        String reason = body.getOrDefault("reason", "").toString();
+        orderService.approveRefund(id, approved, reason);
+        return Result.success(approved ? "退款已处理" : "已拒绝退款");
     }
 
     @PostMapping("/orders/{id}/direct-refund")

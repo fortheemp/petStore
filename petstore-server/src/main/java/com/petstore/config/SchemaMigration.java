@@ -29,12 +29,16 @@ public class SchemaMigration implements ApplicationRunner {
             // Product 表 — 评分字段
             "ALTER TABLE products ADD COLUMN avg_rating REAL DEFAULT 0",
             "ALTER TABLE products ADD COLUMN review_count INTEGER DEFAULT 0",
+            "ALTER TABLE products ADD COLUMN subcategory VARCHAR(50)",
             // Shop 表 — 新字段
             "ALTER TABLE shops ADD COLUMN status VARCHAR(10) DEFAULT 'open'",
             "ALTER TABLE shops ADD COLUMN rating REAL DEFAULT 0",
             "ALTER TABLE shops ADD COLUMN review_count INTEGER DEFAULT 0",
             "ALTER TABLE shops ADD COLUMN phone VARCHAR(20)",
             "ALTER TABLE shops ADD COLUMN business_hours VARCHAR(50)",
+            // User 表 — gender 和 email 字段
+            "ALTER TABLE users ADD COLUMN gender VARCHAR(10) DEFAULT 'secret'",
+            "ALTER TABLE users ADD COLUMN email VARCHAR(100)",
             // Video 表 — 富信息字段
             "ALTER TABLE videos ADD COLUMN duration VARCHAR(10)",
             "ALTER TABLE videos ADD COLUMN duration_seconds INTEGER",
@@ -42,6 +46,7 @@ public class SchemaMigration implements ApplicationRunner {
             "ALTER TABLE videos ADD COLUMN author VARCHAR(50)",
             "ALTER TABLE videos ADD COLUMN description TEXT",
             "ALTER TABLE videos ADD COLUMN category VARCHAR(20)",
+            "ALTER TABLE videos ADD COLUMN cover VARCHAR(500)",
     };
 
     @Override
