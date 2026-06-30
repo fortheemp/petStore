@@ -32,6 +32,6 @@ file:
   upload-dir: ${user.dir}/src/main/resources/static/uploads
 
 ai:
-  api-key: ${AI_API_KEY:your-api-key-here}
-  endpoint: ${AI_ENDPOINT:https://api.deepseek.com/v1/chat/completions}
-  model: ${AI_MODEL:deepseek-v4-flash}
+  api-key: sk-f1768b3c1f904693996c46a118939507
+  endpoint: https://api.deepseek.com/v1/chat/completions
+  model: deepseek-v4-flash
