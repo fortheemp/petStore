@@ -22,7 +22,6 @@
     <view class="info-card" v-if="video">
       <text class="video-title">{{ video.title }}</text>
       <view class="video-meta">
-        <text class="meta-item">▶ {{ formatCount(video.viewCount) }}次播放</text>
         <text class="meta-item" v-if="video.author">{{ video.author }}</text>
         <text class="meta-item">{{ formatDate(video.createdAt) }}</text>
       </view>
@@ -55,12 +54,6 @@ import { fixImageUrl } from '@/services/request'
 
 const video = ref(null)
 const videoUrl = ref('')
-
-const formatCount = (count) => {
-  if (!count) return '0'
-  if (count >= 10000) return (count / 10000).toFixed(1) + '万'
-  return count.toString()
-}
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''

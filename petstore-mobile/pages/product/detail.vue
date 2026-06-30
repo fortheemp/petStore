@@ -5,9 +5,37 @@
       <!-- Gallery (from PC .product-gallery) -->
       <view class="product-gallery">
         <view class="product-gallery__main">
-          <view class="product-gallery__placeholder">
-            <text class="product-gallery__placeholder-text">{{ product.name.charAt(0) }}</text>
+          <image
+            v-if="product.images && product.images.length && product.images[activeImageIndex]"
+            class="product-gallery__img"
+            :src="product.images[activeImageIndex]"
+            mode="aspectFill"
+          />
+          <view v-else class="product-gallery__empty">
+            <text class="product-gallery__empty-text">暂无图片</text>
           </view>
+          <!-- 视频播放按钮 -->
+          <view v-if="product.videoUrl && !showVideo" class="product-gallery__video-btn" @tap="showVideo = true">
+            <view class="product-gallery__video-btn-bg">
+              <text class="product-gallery__video-btn-icon">▶</text>
+            </view>
+            <text class="product-gallery__video-label">播放视频</text>
+          </view>
+        </view>
+        <!-- 视频播放器覆盖层 -->
+        <view v-if="showVideo && product.videoUrl" class="product-gallery__video-overlay" @tap="showVideo = false">
+          <view class="product-gallery__video-header" @tap.stop>
+            <text class="product-gallery__video-title">商品视频</text>
+            <view class="product-gallery__video-close" @tap="showVideo = false">
+              <text class="product-gallery__video-close-icon">✕</text>
+            </view>
+          </view>
+          <video
+            class="product-gallery__video-player"
+            :src="product.videoUrl"
+            controls
+            autoplay
+          />
         </view>
       </view>
 
@@ -193,6 +221,8 @@ const product = ref(null)
 const selectedSpecIndex = ref([])
 const quantity = ref(1)
 const activeTab = ref('detail')
+const activeImageIndex = ref(0)
+const showVideo = ref(false)
 
 const starText = computed(() => {
   if (!product.value) return ''
@@ -257,18 +287,97 @@ const goBack = () => {
 }
 
 /* Gallery (from PC .product-gallery__main) */
+.product-gallery {
+  position: relative;
+}
 .product-gallery__main {
   width: 100%;
   aspect-ratio: 1 / 1;
   background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
+}
+.product-gallery__img {
+  width: 100%;
+  height: 100%;
+}
+.product-gallery__empty {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.product-gallery__placeholder-text {
-  font-size: 160rpx;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.05);
+.product-gallery__empty-text {
+  font-size: 28rpx;
+  color: #ccc;
+}
+.product-gallery__video-btn {
+  position: absolute;
+  bottom: 24rpx;
+  left: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: rgba(0,0,0,0.55);
+  border-radius: 32rpx;
+  padding: 10rpx 24rpx 10rpx 10rpx;
+}
+.product-gallery__video-btn-bg {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.product-gallery__video-btn-icon {
+  font-size: 24rpx;
+  color: #333;
+  margin-left: 3rpx;
+}
+.product-gallery__video-label {
+  font-size: 22rpx;
+  color: #fff;
+  font-weight: 500;
+}
+.product-gallery__video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+.product-gallery__video-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: rgba(0,0,0,0.6);
+}
+.product-gallery__video-title {
+  color: #fff;
+  font-size: 28rpx;
+}
+.product-gallery__video-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.product-gallery__video-close-icon {
+  color: #fff;
+  font-size: 32rpx;
+}
+.product-gallery__video-player {
+  flex: 1;
+  width: 100%;
 }
 
 /* ========== Product Info (from PC .product-info) ========== */

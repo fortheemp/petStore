@@ -35,7 +35,13 @@
                 class="recommend-card"
               >
                 <view class="recommend-card__icon">
-                  <text class="recommend-card__letter">{{ product.name.charAt(0) }}</text>
+                  <image
+                    v-if="product.image"
+                    class="recommend-card__img"
+                    :src="product.image"
+                    mode="aspectFill"
+                  />
+                  <text v-else class="recommend-card__letter">{{ product.name.charAt(0) }}</text>
                 </view>
                 <view class="recommend-card__info">
                   <text class="recommend-card__name">{{ product.name }}</text>
@@ -384,6 +390,12 @@ if (!hasWelcome.value) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.recommend-card__img {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 12rpx;
 }
 .recommend-card__letter {
   font-size: 28rpx;

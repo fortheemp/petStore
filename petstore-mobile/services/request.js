@@ -32,7 +32,7 @@ const request = (options) => {
             resolve(body.data)
           } else {
             const msg = body.message || '请求失败'
-            uni.showToast({ title: msg, icon: 'none' })
+            if (!options.silent) uni.showToast({ title: msg, icon: 'none' })
             reject(new Error(msg))
           }
         } else if (res.statusCode === 200) {
@@ -44,7 +44,7 @@ const request = (options) => {
           reject(new Error('未登录'))
         } else {
           const msg = body?.message || '请求失败'
-          uni.showToast({ title: msg, icon: 'none' })
+          if (!options.silent) uni.showToast({ title: msg, icon: 'none' })
           reject(new Error(msg))
         }
       },
@@ -63,7 +63,7 @@ export const fixImageUrl = (url) => {
   return BASE_URL.replace(/\/api\/?$/, '') + url
 }
 
-export const get = (url, data) => request({ url, method: 'GET', data })
+export const get = (url, data, config) => request({ url, method: 'GET', data, ...config })
 export const post = (url, data, config) => request({ url, method: 'POST', data, ...config })
 export const put = (url, data, config) => request({ url, method: 'PUT', data, ...config })
 export const del = (url, config) => request({ url, method: 'DELETE', ...config })

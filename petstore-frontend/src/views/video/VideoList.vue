@@ -217,7 +217,6 @@ onMounted(() => {
           <div class="video-card__info">
             <h3 class="video-card__title">{{ video.title }}</h3>
             <div class="video-card__meta">
-              <span class="video-card__views">观看 {{ formatCount(video.viewCount) }}次</span>
               <span class="video-card__author">{{ video.author }}</span>
             </div>
             <div v-if="video.relatedProduct" class="video-card__related">
@@ -272,7 +271,6 @@ onMounted(() => {
 
         <div class="video-player__info">
           <div class="video-player__meta">
-            <span>观看 {{ formatCount(currentVideo?.viewCount) }}次</span>
             <span>发布于 {{ currentVideo?.createTime }}</span>
           </div>
           <p class="video-player__desc">{{ currentVideo?.description }}</p>

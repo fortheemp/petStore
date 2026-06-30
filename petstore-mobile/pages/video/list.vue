@@ -38,7 +38,6 @@
           <view class="video-info">
             <text class="video-title">{{ video.title }}</text>
             <view class="video-meta">
-              <text class="views">▶ {{ formatViews(video.viewCount) }}次播放</text>
               <text class="date">{{ formatDate(video.createdAt) }}</text>
             </view>
           </view>
@@ -71,12 +70,6 @@ const coverThemes = [
   { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: '🐾' },
   { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', icon: '🎾' },
 ]
-
-const formatViews = (count) => {
-  if (!count) return '0'
-  if (count >= 10000) return (count / 10000).toFixed(1) + 'w'
-  return count.toLocaleString()
-}
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''

@@ -34,7 +34,7 @@ export const getVideoList = (category) => {
   })
 }
 
-export const getVideoById = (id) => get(`/videos/${id}`)
+export const getVideoById = (id) => get(`/videos/${id}`, undefined, { silent: true })
 
 export function formatCount(count) {
   if (!count) return '0'
