@@ -22,11 +22,8 @@
         </view>
         <view class="shop-card" v-for="shop in shops" :key="shop.id" @tap="goDetail(shop.id)">
           <view class="card-body">
-            <view class="card-left">
-              <image v-if="shop.image" class="shop-img" :src="shop.image" mode="aspectFill" />
-              <view v-else class="shop-avatar">
-                <text class="avatar-text">{{ shop.name.charAt(0) }}</text>
-              </view>
+            <view v-if="shop.image" class="card-left">
+              <image class="shop-img" :src="shop.image" mode="aspectFill" />
             </view>
             <view class="card-right">
               <view class="shop-header">

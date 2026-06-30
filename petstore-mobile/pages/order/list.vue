@@ -31,7 +31,10 @@
             </text>
           </view>
           <view class="order-item" v-for="item in order.items" :key="item.productId || item.id">
-            <image class="item-image" :src="item.image" mode="aspectFill" />
+            <view class="item-image">
+              <image v-if="item.image" class="item-image-img" :src="item.image" mode="aspectFill" />
+              <text v-else class="item-image-text">{{ item.name.charAt(0) }}</text>
+            </view>
             <view class="item-info">
               <text class="item-name">{{ item.name }}</text>
               <text class="item-spec" v-if="item.spec">{{ item.spec }}</text>
@@ -63,7 +66,7 @@
             <view v-if="order.status === 2" class="action-btn action-btn--primary" @tap.stop="confirmOrder(order.id)">
               <text class="action-btn-text action-btn-text--white">确认收货</text>
             </view>
-            <view v-if="order.status === 3 && !order.reviewed" class="action-btn action-btn--primary" @tap.stop="goDetail(order.id)">
+            <view v-if="order.status === 3 && !order.reviewed" class="action-btn action-btn--primary" @tap.stop="goReview(order.id)">
               <text class="action-btn-text action-btn-text--white">写评价</text>
             </view>
           </view>
@@ -203,6 +206,10 @@ const switchTab = (value) => {
 
 const goDetail = (id) => {
   uni.navigateTo({ url: `/pages/order/detail?id=${id}` })
+}
+
+const goReview = (id) => {
+  uni.navigateTo({ url: `/pages/order/detail?id=${id}&review=1` })
 }
 
 const payOrder = async (id) => {
@@ -375,6 +382,22 @@ onShow(() => {
   height: 140rpx;
   border-radius: 12rpx;
   background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.item-image-img {
+  width: 100%;
+  height: 100%;
+}
+
+.item-image-text {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.06);
 }
 
 .item-info {

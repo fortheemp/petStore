@@ -8,6 +8,7 @@
           class="avatar"
           :src="avatarUrl"
           mode="aspectFill"
+          @error="avatarUrl = ''"
         />
         <view v-else class="avatar avatar--text">
           <text class="avatar-letter">{{ (userInfo.nickname || userInfo.username || '?').charAt(0) }}</text>
@@ -98,7 +99,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
 import { getProfile } from '@/services/user'
@@ -107,7 +108,11 @@ import { fixImageUrl } from '@/services/request'
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const userInfo = computed(() => userStore.user)
-const avatarUrl = computed(() => fixImageUrl(userInfo.value?.avatar || ''))
+const avatarUrl = ref(fixImageUrl(userInfo.value?.avatar || ''))
+
+watch(() => userInfo.value?.avatar, (val) => {
+  avatarUrl.value = fixImageUrl(val || '')
+})
 
 const goLogin = () => {
   uni.navigateTo({ url: '/pages/auth/login' })

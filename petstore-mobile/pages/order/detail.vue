@@ -65,7 +65,8 @@
       <text class="card__title">商品信息</text>
       <view class="order-item" v-for="item in order.items" :key="item.productId || item.id">
         <view class="item-image">
-          <text class="item-image-text">{{ item.name.charAt(0) }}</text>
+          <image v-if="item.image" class="item-image-img" :src="item.image" mode="aspectFill" />
+          <text v-else class="item-image-text">{{ item.name.charAt(0) }}</text>
         </view>
         <view class="item-info">
           <text class="item-name">{{ item.name }}</text>
@@ -122,8 +123,8 @@
       </view>
     </view>
 
-    <!-- Review Section (completed orders) -->
-    <view v-if="order.status === 4" class="card">
+    <!-- Review Section (待评价 orders) -->
+    <view v-if="order.status === 3" class="card">
       <view class="review-header">
         <text class="card__title">商品评价</text>
         <view v-if="!order.reviewed && !showReviewForm" class="review-write-btn" @tap="initReview">
@@ -383,7 +384,13 @@ const submitReview = async () => {
 
 onLoad((query) => {
   const orderId = Number(query?.id)
-  if (orderId) loadOrder(orderId)
+  if (orderId) {
+    loadOrder(orderId).then(() => {
+      if (query?.review === '1' && order.value.status === 3 && !order.value.reviewed) {
+        initReview()
+      }
+    })
+  }
 })
 </script>
 
@@ -546,6 +553,12 @@ onLoad((query) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.item-image-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
 }
 
 .item-image-text {

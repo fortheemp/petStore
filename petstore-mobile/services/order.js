@@ -1,4 +1,4 @@
-import { get, post } from './request'
+import { get, post, fixImageUrl } from './request'
 import { useUserStore } from '../stores/user'
 
 const STATUS_MAP = {
@@ -11,14 +11,6 @@ const STATUS_MAP = {
   '-2': { text: '退款申请中', color: '#ff4d4f' },
   '-3': { text: '退款成功', color: '#52c41a' },
   '-4': { text: '管理员退单', color: '#ff4d4f' },
-}
-
-function fixImageUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http')) {
-    return url.replace('http://10.171.141.181:8080', '')
-  }
-  return url
 }
 
 function adaptOrder(order, items = [], reviewed = false) {
@@ -70,20 +62,22 @@ export async function getOrderList() {
       const detail = await getOrderDetail(o.id)
       items = Array.isArray(detail?.items) ? detail.items : []
     } catch (e) { console.error('getOrderList detail error:', o.id, e) }
+    const adaptedItems = items.map((it) => ({
+      productId: it.productId,
+      name: it.name || `商品#${it.productId}`,
+      price: Number(it.price) || 0,
+      quantity: it.quantity || 1,
+      image: it.image || '',
+      spec: it.spec || '',
+    }))
     return {
       ...o,
       orderNo: `PS${String(o.id).padStart(8, '0')}`,
       createTime: o.createdAt,
       payAmount: Number(o.totalAmount) || 0,
       status: Number(o.status),
-      items: items.map((it) => ({
-        productId: it.productId,
-        name: it.productName || `商品#${it.productId}`,
-        image: fixImageUrl(it.productImage),
-        price: Number(it.price) || 0,
-        quantity: it.quantity || 1,
-        spec: it.spec || '',
-      })),
+      reviewed: !!o.reviewed,
+      items: adaptedItems,
     }
   }))
   return enriched
