@@ -37,7 +37,6 @@ const handleCategoryChange = (cat) => {
 // Player
 const showPlayer = ref(false)
 const currentVideo = ref(null)
-const videoRef = ref(null)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const totalTime = ref(0)
@@ -81,8 +80,8 @@ const togglePlay = () => {
 }
 
 const onTimeUpdate = () => {
-  if (videoRef.value) {
-    currentTime.value = Math.floor(videoRef.value.currentTime)
+  if (playerVideoRef.value) {
+    currentTime.value = Math.floor(playerVideoRef.value.currentTime)
   }
 }
 
@@ -97,8 +96,8 @@ const seekVideo = (e) => {
   const rect = e.currentTarget.getBoundingClientRect()
   const pct = (e.clientX - rect.left) / rect.width
   progressPercent.value = Math.max(0, Math.min(100, pct * 100))
-  if (videoRef.value) {
-    videoRef.value.currentTime = pct * totalTime.value
+  if (playerVideoRef.value) {
+    playerVideoRef.value.currentTime = pct * totalTime.value
   }
 }
 
