@@ -123,21 +123,19 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
 import { getAddressList, addAddress as apiAddAddress, updateAddress as apiUpdateAddress, deleteAddress as apiDeleteAddress, setDefaultAddress } from '@/services/address'
+import { chinaRegions } from '@/data/china-regions'
 
 const userStore = useUserStore()
 
-const provinces = {
-  '广东省': {
-    '广州市': ['天河区', '越秀区', '海珠区'],
-    '深圳市': ['南山区', '福田区', '罗湖区'],
-  },
-  '北京市': {
-    '北京市': ['朝阳区', '海淀区', '东城区'],
-  },
-  '上海市': {
-    '上海市': ['浦东新区', '徐汇区', '静安区'],
-  },
-}
+// 将 PC 端 { value, label, children } 格式转为手机端 { 省: { 市: [区] } }
+const provinces = {}
+chinaRegions.forEach((p) => {
+  const cityName = p.value
+  provinces[cityName] = {}
+  ;(p.children || []).forEach((c) => {
+    provinces[cityName][c.value] = (c.children || []).map((d) => d.value)
+  })
+})
 
 const addressList = ref([])
 

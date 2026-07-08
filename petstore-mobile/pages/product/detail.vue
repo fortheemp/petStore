@@ -77,6 +77,12 @@
           <text class="product-info__delivery-text">满 199 元包邮</text>
         </view>
 
+        <!-- Favorite toggle -->
+        <view class="product-info__fav" @tap="toggleFavorite">
+          <text class="product-info__fav-icon" :class="{ 'product-info__fav-icon--active': isFavorited }">{{ isFavorited ? '♥' : '♡' }}</text>
+          <text class="product-info__fav-text" :class="{ 'product-info__fav-text--active': isFavorited }">{{ isFavorited ? '已收藏' : '收藏' }}</text>
+        </view>
+
         <!-- Shop (from PC .product-info__shop) -->
         <view class="product-info__shop">
           <text class="product-info__shop-label">店铺</text>
@@ -243,6 +249,29 @@ const currentSpec = computed(() => {
     .join(' / ')
 })
 
+const isFavorited = ref(false)
+
+const checkFavorited = () => {
+  if (!product.value) return
+  const ids = uni.getStorageSync('petstore_favorites') || []
+  isFavorited.value = ids.includes(product.value.id)
+}
+
+const toggleFavorite = () => {
+  if (!product.value) return
+  const ids = uni.getStorageSync('petstore_favorites') || []
+  const idx = ids.indexOf(product.value.id)
+  if (idx > -1) {
+    ids.splice(idx, 1)
+    uni.showToast({ title: '已取消收藏', icon: 'success' })
+  } else {
+    ids.push(product.value.id)
+    uni.showToast({ title: '收藏成功', icon: 'success' })
+  }
+  uni.setStorageSync('petstore_favorites', ids)
+  checkFavorited()
+}
+
 onLoad(async (query) => {
   const id = query?.id
   if (!id) return
@@ -251,6 +280,7 @@ onLoad(async (query) => {
     if (result) {
       product.value = result
       selectedSpecIndex.value = (result.specs || []).map(() => 0)
+      checkFavorited()
     }
   } catch {}
 })
@@ -504,6 +534,30 @@ const goBack = () => {
 .product-info__shop-name {
   color: #1c49c2;
   font-weight: 500;
+}
+
+/* Favorite toggle */
+.product-info__fav {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 20rpx;
+  padding: 12rpx 0;
+}
+.product-info__fav-icon {
+  font-size: 36rpx;
+  color: #ccc;
+}
+.product-info__fav-icon--active {
+  color: #bd2848;
+}
+.product-info__fav-text {
+  font-size: 26rpx;
+  color: #999;
+}
+.product-info__fav-text--active {
+  color: #bd2848;
+  font-weight: 600;
 }
 
 /* Specs (from PC .spec-option) */

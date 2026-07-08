@@ -148,6 +148,7 @@ export function getProducts(params = {}) {
       const kw = keyword.toLowerCase()
       filtered = filtered.filter((p) =>
         p.name.toLowerCase().includes(kw) ||
+        (categoryMap[p.category]?.label || '').includes(kw) ||
         (p.shopName || '').toLowerCase().includes(kw)
       )
     }

@@ -66,6 +66,13 @@
         </view>
         <image class="menu-arrow-img" src="/static/icons/arrow.png" mode="aspectFit" />
       </view>
+      <view class="menu-item" @tap="goPage('/pages/user/favorites')">
+        <view class="menu-left">
+          <image class="menu-icon-img" src="/static/icons/star.png" mode="aspectFit" />
+          <text class="menu-text">我的收藏</text>
+        </view>
+        <image class="menu-arrow-img" src="/static/icons/arrow.png" mode="aspectFit" />
+      </view>
       <view class="menu-item" @tap="goPage('/pages/user/address')">
         <view class="menu-left">
           <image class="menu-icon-img" src="/static/icons/menu-address.png" mode="aspectFit" />
@@ -304,6 +311,19 @@ onShow(async () => {
 .menu-icon-img {
   width: 36rpx;
   height: 36rpx;
+}
+
+.menu-icon-text {
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+}
+
+.menu-icon-text--fav {
+  color: #bd2848;
 }
 
 .menu-text {

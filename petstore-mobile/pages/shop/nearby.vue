@@ -64,11 +64,15 @@
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getShopList } from '@/services/shop'
-import { getAddressList } from '@/services/address'
 import { useUserStore } from '@/stores/user'
+import { getAddressList } from '@/services/address'
 
 const userStore = useUserStore()
+const _isHttp = typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+const AMAP_URL = _isHttp ? '/amap/v3/place/around' : 'https://restapi.amap.com/v3/place/around'
+const AMAP_GEO_URL = _isHttp ? '/amap/v3/geocode/geo' : 'https://restapi.amap.com/v3/geocode/geo'
+const AMAP_KEY = '1a514b06dfbb25f3a692564054e7df23'
+
 const shops = ref([])
 const keyword = ref('')
 const loading = ref(true)
@@ -90,119 +94,124 @@ const formatDistance = (km) => {
   return km.toFixed(1) + 'km'
 }
 
-const loadShops = async () => {
-  loading.value = true
+// AMap REST API 搜索附近宠物店（对应电脑端 searchNearbyPetShops）
+const searchNearbyPetShops = (lng, lat) => {
+  return new Promise((resolve) => {
+    const url = `${AMAP_URL}?key=${AMAP_KEY}&location=${lng},${lat}&keywords=宠物&radius=5000&extensions=all`
+    console.log('[nearby] AMap request:', url)
+    uni.request({
+      url,
+      success: (res) => {
+        console.log('[nearby] AMap response:', JSON.stringify(res.data).substring(0, 300))
+        if (res.data?.status === '1' && res.data.pois) {
+          const pois = res.data.pois.map((poi) => ({
+            id: `poi_${poi.id}`,
+            name: poi.name,
+            address: poi.address || poi.cityname + poi.adname,
+            lng: Number(poi.location?.split(',')[0]),
+            lat: Number(poi.location?.split(',')[1]),
+            phone: poi.tel,
+            rating: null,
+            reviewCount: null,
+            status: 'open',
+            businessHours: poi.biz_ext?.opening_time || null,
+            _isPoi: true,
+          }))
+          console.log('[nearby] AMap pois count:', pois.length)
+          resolve(pois)
+        } else {
+          console.log('[nearby] AMap no results, info:', res.data?.info)
+          resolve([])
+        }
+      },
+      fail: (err) => {
+        console.error('[nearby] AMap request failed:', err)
+        resolve([])
+      },
+    })
+  })
+}
+
+// 高德地理编码：地址转坐标（对应电脑端 Geocoder.getLocation）
+const geocodeAddress = (fullAddr) => {
+  return new Promise((resolve) => {
+    const url = `${AMAP_GEO_URL}?key=${AMAP_KEY}&address=${encodeURIComponent(fullAddr)}`
+    console.log('[nearby] geocode request:', fullAddr)
+    uni.request({
+      url,
+      success: (res) => {
+        console.log('[nearby] geocode response:', JSON.stringify(res.data).substring(0, 300))
+        if (res.data?.status === '1' && res.data.geocodes?.length) {
+          const loc = res.data.geocodes[0].location.split(',')
+          resolve({ lng: Number(loc[0]), lat: Number(loc[1]) })
+        } else {
+          resolve(null)
+        }
+      },
+      fail: () => resolve(null),
+    })
+  })
+}
+
+// 根据收货地址定位（对应电脑端 locateByAddress）
+const locateByAddress = async () => {
+  if (!userStore.isLoggedIn) return null
   try {
-    const res = await getShopList()
-    const list = (Array.isArray(res) ? res : []).filter(s => s.name && s.name.length > 1)
-    shops.value = list.map(s => ({
-      ...s,
-      lng: s.lng ?? s.longitude,
-      lat: s.lat ?? s.latitude,
-    }))
-  } catch {
-    shops.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-let _amapLoadPromise = null
-const loadAMapSDK = () => {
-  if (_amapLoadPromise) return _amapLoadPromise
-  _amapLoadPromise = new Promise((resolve, reject) => {
-    if (window.AMap && window.AMap.Geocoder && window.AMap.PlaceSearch) {
-      resolve(window.AMap)
-      return
-    }
-    window._AMapSecurityConfig = {
-      securityJsCode: '14895041b0729be0b72daa42d8c6fc15',
-    }
-    const script = document.createElement('script')
-    script.src = 'https://webapi.amap.com/maps?v=2.0&key=e6579887e28a5e152a6353a57a61e8fe&plugin=AMap.Geocoder,AMap.PlaceSearch'
-    script.onload = () => {
-      setTimeout(() => resolve(window.AMap), 500)
-    }
-    script.onerror = () => reject(new Error('AMap SDK load failed'))
-    document.head.appendChild(script)
-  })
-  return _amapLoadPromise
-}
-
-// Search nearby pet shops via AMap POI — matches PC frontend's searchNearbyPetShops()
-const searchNearbyPetShops = (AMapLib, lng, lat) => {
-  const placeSearch = new AMapLib.PlaceSearch({
-    pageSize: 20,
-    pageIndex: 1,
-    extensions: 'all',
-  })
-  const center = new AMapLib.LngLat(lng, lat)
-  placeSearch.searchNearBy('宠物', center, 5000, (status, result) => {
-    if (status === 'complete' && result.poiList?.pois) {
-      const pois = result.poiList.pois.map((poi) => ({
-        id: `poi_${poi.id}`,
-        name: poi.name,
-        address: poi.address || poi.cityname + poi.adname,
-        lng: poi.location?.lng,
-        lat: poi.location?.lat,
-        phone: poi.tel,
-        rating: null,
-        reviewCount: null,
-        status: 'open',
-        businessHours: null,
-        _isPoi: true,
-      }))
-      // Merge: backend shops within 50km + POI results, deduplicate by name
-      const backendShops = shops.value
-        .map(s => ({
-          ...s,
-          distance: (s.lng && s.lat) ? getDistance(lng, lat, s.lng, s.lat) : null,
-        }))
-        .filter(s => s.distance !== null && s.distance <= 50)
-      const seen = new Set(backendShops.map(s => s.name))
-      const uniquePois = pois.filter(s => !seen.has(s.name))
-      shops.value = [...backendShops, ...uniquePois].sort((a, b) => {
-        if (a.distance != null && b.distance != null) return a.distance - b.distance
-        if (a.distance != null) return -1
-        if (b.distance != null) return 1
-        return 0
-      })
-      hasLocation.value = true
-    }
-    locateStatus.value = ''
-  })
-}
-
-const sortShopsByAddress = async () => {
-  if (!userStore.isLoggedIn) return
-  const userId = userStore.user?.id
-  if (!userId) return
-
-  try {
+    const userId = userStore.user?.id
+    if (!userId) return null
     const res = await getAddressList(userId)
     const list = Array.isArray(res) ? res : []
-    if (!list.length) return
-
-    const defaultAddr = list.find(a => a.isDefault === 1) || list[0]
-    const fullAddress = (defaultAddr.province || '') + (defaultAddr.city || '') + (defaultAddr.district || '') + (defaultAddr.detail || '')
-
-    locateStatus.value = '定位中...'
-
-    const AMap = await loadAMapSDK()
-    const geocoder = new AMap.Geocoder()
-
-    geocoder.getLocation(fullAddress, (status, result) => {
-      if (status === 'complete' && result.geocodes?.length) {
-        const { lng, lat } = result.geocodes[0].location
-        // Search nearby pet shops via POI (matches PC frontend)
-        searchNearbyPetShops(AMap, lng, lat)
-      } else {
-        locateStatus.value = ''
-      }
-    })
-  } catch {
-    locateStatus.value = ''
+    const addr = list.find((a) => a.isDefault === 1) || list[0]
+    if (!addr) return null
+    const fullAddr = [addr.province, addr.city, addr.district, addr.detail].filter(Boolean).join('')
+    if (!fullAddr) return null
+    console.log('[nearby] locateByAddress:', fullAddr)
+    return await geocodeAddress(fullAddr)
+  } catch (e) {
+    console.error('[nearby] locateByAddress error:', e)
+    return null
   }
+}
+
+// GPS定位（备用方案）
+const locateByGps = () => {
+  return new Promise((resolve) => {
+    uni.getLocation({
+      type: 'gcj02',
+      success: (res) => resolve({ lng: res.longitude, lat: res.latitude }),
+      fail: () => resolve(null),
+    })
+  })
+}
+
+// 主入口：先用收货地址，失败再用GPS（对应电脑端 locateByAddress + GPS fallback）
+const locateAndSearch = async () => {
+  loading.value = false
+  locateStatus.value = '定位中...'
+
+  // 方案1：用收货地址地理编码（不需要GPS权限）
+  const addrLoc = await locateByAddress()
+  if (addrLoc) {
+    locateStatus.value = '搜索附近宠物店...'
+    shops.value = await searchNearbyPetShops(addrLoc.lng, addrLoc.lat)
+    hasLocation.value = true
+    locateStatus.value = ''
+    return
+  }
+
+  // 方案2：用GPS定位（需要定位权限）
+  locateStatus.value = '正在GPS定位...'
+  const gpsLoc = await locateByGps()
+  if (gpsLoc) {
+    locateStatus.value = '搜索附近宠物店...'
+    shops.value = await searchNearbyPetShops(gpsLoc.lng, gpsLoc.lat)
+    hasLocation.value = true
+    locateStatus.value = ''
+    return
+  }
+
+  locateStatus.value = ''
+  uni.showToast({ title: '定位失败，请先设置收货地址', icon: 'none', duration: 3000 })
 }
 
 const goDetail = (id) => {
@@ -213,12 +222,16 @@ const goDetail = (id) => {
 const navigateTo = (shop) => {
   if (shop.lng && shop.lat) {
     const url = `https://uri.amap.com/navigation?to=${shop.lng},${shop.lat},${encodeURIComponent(shop.name)}&mode=car&policy=1&src=petstore`
-    window.open(url, '_blank')
+    if (typeof plus !== 'undefined') {
+      plus.runtime.openURL(url)
+    } else {
+      window.open(url, '_blank')
+    }
   }
 }
 
 onShow(() => {
-  loadShops().then(() => sortShopsByAddress())
+  locateAndSearch()
 })
 </script>
 
