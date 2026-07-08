@@ -17,6 +17,7 @@ Thumbs.db
 
 # Env
 *.env.local
+application-local.yml
 
 # Local-only (不推送)
 .claude/
